@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>event-horizon settings</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 24px; background: #0b0e13; color: #e7e9ea;
+    font: 14px/1.5 -apple-system, system-ui, sans-serif; min-width: 380px;
+  }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  #status { color: #f9a826; font-size: 12px; margin: 0 0 20px; min-height: 1em; }
+  .row { margin: 0 0 18px; }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .hint { color: #71767b; font-size: 12px; margin-top: 2px; }
+  input[type="number"], select {
+    width: 120px; padding: 6px 8px; background: #15202b; color: #e7e9ea;
+    border: 1px solid #38444d; border-radius: 6px; font: inherit;
+  }
+  input[type="range"] { width: 220px; vertical-align: middle; accent-color: #f9a826; }
+  output { margin-left: 8px; }
+  .toggle { display: flex; align-items: center; gap: 8px; }
+  .toggle input { width: 18px; height: 18px; accent-color: #f9a826; }
+  .toggle label { margin: 0; }
+</style>
+</head>
+<body>
+  <h1>event-horizon</h1>
+  <p id="status">—</p>
+
+  <div class="row toggle">
+    <input type="checkbox" id="enabled">
+    <label for="enabled">Enabled</label>
+  </div>
+
+  <div class="row">
+    <label for="limit">Limit (minutes)</label>
+    <input type="number" id="limit" min="1" max="480" step="1">
+    <p class="hint">Continuous scrolling for this long grows the hole to full mass.</p>
+  </div>
+
+  <div class="row">
+    <label for="decay">Starvation half-life (minutes)</label>
+    <input type="number" id="decay" min="1" max="240" step="1">
+    <p class="hint">Off X, the hole halves this often. There is no reset button — closing the tab is the reset.</p>
+  </div>
+
+  <div class="row">
+    <label for="mode">Render mode</label>
+    <select id="mode">
+      <option value="auto">auto (lens, degrade if slow)</option>
+      <option value="lens">lens (gravitational distortion)</option>
+      <option value="spaghetti">spaghetti (tweets sucked in whole)</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label for="coverage">Max coverage</label>
+    <input type="range" id="coverage" min="5" max="60" step="1"><output id="coverageOut"></output>
+    <p class="hint">How much of the viewport the hole may eat at full mass.</p>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

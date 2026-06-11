@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "event-horizon",
+  "version": "0.0.1",
+  "description": "An anti-doomscrolling black hole for X. The longer you scroll, the bigger it grows.",
+  "permissions": ["storage", "alarms"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "event-horizon — minutes on X today"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/displacement.png"],
+      "matches": ["https://x.com/*", "https://twitter.com/*"]
+    }
+  ]
+}

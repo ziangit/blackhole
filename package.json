@@ -1,0 +1,17 @@
+{
+  "name": "event-horizon",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "esbuild src/mass.ts --bundle --format=esm --outfile=test/.mass.bundle.mjs --log-level=silent && node --test test/mass.test.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0"
+  }
+}

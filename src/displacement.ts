@@ -1,0 +1,53 @@
+// Displacement-map generation for the feDisplacementMap lens.
+// Radial deflection vectors encoded in R/G around the 128 neutral point;
+// deflection ∝ mass / max(r, eventRadius)². Map edges fade smoothly to
+// neutral so the filter never shifts content outside the hole's influence.
+// Mirrored at build time by tools/gen-displacement.mjs — keep in sync.
+
+export const MAP_SIZE = 256;
+
+const EVENT_R = 0.15;
+const STRENGTH = 0.05;
+
+export function renderDisplacementMap(
+  canvas: HTMLCanvasElement,
+  mass: number,
+): void {
+  const size = MAP_SIZE;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("no 2d context");
+  const img = ctx.createImageData(size, size);
+  const data = img.data;
+  const c = (size - 1) / 2;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const nx = (x - c) / c;
+      const ny = (y - c) / c;
+      const r = Math.hypot(nx, ny);
+      let dx = 0;
+      let dy = 0;
+      if (r > 1e-4 && r < 1) {
+        let m = (mass * STRENGTH) / Math.max(r, EVENT_R) ** 2;
+        const f = Math.min((1 - r) / 0.25, 1);
+        m *= f * f * (3 - 2 * f);
+        m = Math.min(m, 1);
+        dx = (nx / r) * m;
+        dy = (ny / r) * m;
+      }
+      const i = (y * size + x) * 4;
+      data[i] = Math.round(128 + dx * 127);
+      data[i + 1] = Math.round(128 + dy * 127);
+      data[i + 2] = 128;
+      data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+export function displacementDataURL(mass: number): string {
+  const canvas = document.createElement("canvas");
+  renderDisplacementMap(canvas, mass);
+  return canvas.toDataURL("image/png");
+}

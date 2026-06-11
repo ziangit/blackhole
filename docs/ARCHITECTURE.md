@@ -1,0 +1,42 @@
+# event-horizon — architecture (living doc)
+
+> Update this whenever a non-obvious decision or constraint is discovered.
+
+## Stack
+- Chrome extension, Manifest V3.
+- Plain TypeScript bundled with esbuild (no framework, no bundler config beyond a build script).
+- `src/background.ts` — MV3 service worker: mass model, heartbeat accumulation, alarms decay, badge.
+- `src/content.ts` + helpers — injected on `https://x.com/*` and `https://twitter.com/*` at `document_idle`: timeline acquisition, hole overlay canvas, lens renderer, heartbeats.
+- `src/options.html/ts` — settings page, live-apply via `storage.onChanged`.
+- State: `chrome.storage.local` is the single source of truth for `mass` and settings.
+
+## Known constraints & gotchas
+- **CSP findings (Milestone 0):**
+  - x.com's response CSP (`curl -I https://x.com/`, 2026-06-11) has `img-src 'self' blob: data: …` — **`data:` and `blob:` URLs are explicitly allowed**, so strategy 1 (feImage + canvas `data:` URL) should pass CSP. `chrome-extension:` is NOT in `img-src`, so strategy 2 (packaged PNG) depends on Chrome's extension-resource CSP bypass for `web_accessible_resources` — it is the riskier one, not the safer one as originally assumed.
+  - The full filter chain (feFlood `#808080` → feImage data: map → feMerge → feDisplacementMap, sRGB) was verified in real Chrome via headless screenshot of `test/sandbox.html` — visible lensing, no uniform shift, straight lines when off. See `test/shot-on.png` / `test/shot-off.png`.
+  - **RESULT on real x.com (verified live 2026-06-11): all three strategies PASS, zero CSP violations.** lens-data (feImage + canvas `data:` URL): PASS, 688 px displaced in the probe. lens-packaged (feImage + `chrome.runtime.getURL` PNG): PASS. spaghetti (CSS transforms): works. **Winner/default: lens-data** — no packaged asset needed, map can be regenerated as mass changes; spaghetti kept as a selectable `renderMode` and as the auto-degrade fallback; lens-packaged is a known-good spare but not wired as a mode.
+- **Viewport anchoring (post-spike fix):** the hole lives in VIEWPORT coordinates (it must agree with the `position: fixed` overlay canvas to the pixel). Every animation frame, inside the rAF loop, convert viewport → filtered-element local coords (`holeViewport − column.getBoundingClientRect().left/top`) and update feImage x/y from that — never from a debounced scroll listener, or the warp lags/swims during fast scrolls. Spaghetti mode needs no conversion: `getBoundingClientRect()` on tweets is already viewport-relative. Original spike bug for the record: `lastX`/`lastY` change-detection was initialized to `NaN`, and `NaN > 0.5` comparisons are always false, so feImage x/y never updated after frame one — the hole stuck in content space and scrolled away.
+- **feImage gotcha — uncovered regions:** where the map image doesn't cover the filter region, `in2` reads transparent black (channel 0) → a uniform `-scale/2` shift of the WHOLE element. Fix: composite the map over a neutral `feFlood flood-color="#808080"` via feMerge.
+- **feImage gotcha — color space:** default `color-interpolation-filters` is linearRGB, which destroys the 128-neutral encoding. The filter MUST set `color-interpolation-filters="sRGB"`.
+- **feImage positioning:** with `primitiveUnits="userSpaceOnUse"`, feImage x/y/width/height are CSS px relative to the filtered element's border-box top-left — per-frame hole motion = two cheap `setAttribute` calls, no canvas regeneration.
+- X is a React SPA: virtualized scrolling + client-side navigation. The timeline container may not exist at injection and does not survive navigation. Re-acquire `main[role="main"]` (and primary column within) via MutationObserver + periodic poll.
+- Never filter `body` — fixed-position elements break (SVG filter creates a containing block) and perf tanks. Filter the timeline column only.
+- X's virtualization can rewrite inline styles on `article` elements — in spaghetti mode, set transforms on a wrapper we control, and restore styles when elements leave the radius or on disable.
+- MV3 service worker is ephemeral: persist everything to `chrome.storage.local`; use `chrome.alarms` (not setTimeout/setInterval) for the decay tick.
+- Displacement map encoding: radial deflection vectors in R/G channels around the 128 neutral point; deflection ∝ mass / max(r, eventRadius)². Map regeneration ≤ 10 Hz and only on size-tier changes; per-frame motion via cheap attribute updates (feImage x/y or CSS vars), never per-frame canvas regeneration.
+- Perf: < 4 ms scripting/frame budget; rolling frame-time avg > ~12 ms → auto-degrade lens → spaghetti → overlay-only (log once).
+- Pause all work (rAF stops) when tab hidden; respect `prefers-reduced-motion`.
+- Modal/composer overlays: suspend the filter while open — lensing a half-typed reply is hostile.
+
+## Key decisions
+- `LensRenderer` interface (src/renderer.ts) so render strategies are swappable; **lens-data (feImage + data: URL) is the default** per the Milestone 0 result, spaghettification always available as a setting (`renderMode: "lens" | "spaghetti" | "auto"`). Renderers take a `Hole` in viewport coordinates each frame and own their column acquisition and coordinate conversion.
+- Heartbeat model (content → worker every 5 s while visible+focused, scroll delta ≥ 150 px ⇒ 1.5× accrual) instead of tab-time APIs: keeps permissions at `storage` + `alarms` only.
+- **Multi-tab dedupe:** the worker credits wall-clock elapsed since the last accrual from ANY tab (capped at one heartbeat interval after a gap), not a fixed 5 s per heartbeat — two visible X tabs sum to real time, never 2×. Handlers are serialized through a promise queue so simultaneous heartbeats can't read the same pre-state.
+- **Restart-proof decay:** the mass model is pure functions over persisted state (`src/mass.ts`, unit-tested in `test/mass.test.mjs` via `npm test`). Every worker event loads from `chrome.storage.local`, applies, writes back; decay integrates over real elapsed time since `max(lastDecayAt, lastHeartbeatAt)`, so a killed worker or closed browser catches up the full gap on the next alarm fire (alarms persist) or `onStartup`. `effectiveSeconds` caps at `limitMinutes*60` so a long binge doesn't take hours to starve.
+- Mass curve: linear in `effectiveSeconds/limit`, plus an `0.18 × smoothstep(0.7, 1, raw)` push — accelerating endgame, full mass lands slightly before the nominal limit.
+- **Clock-skew dt-cap:** a single decay step never integrates more than `MAX_DECAY_STEP_MINUTES` (15), so a laptop waking from hours of sleep doesn't instantly starve the hole; per-minute alarm cadence while awake is far below the cap, so "off X ~30 min → gone" is unaffected. Feeding is capped symmetrically (one heartbeat interval per accrual); backwards clock jumps are no-ops in both directions. All tested.
+- **Hole pipeline (M2):** `HoleController` (src/hole-controller.ts) is the single source of the hole: reads mass from `storage.onChanged`, eases it (exp smoothing, τ=700 ms — never pops), computes disc radius (`πR² = maxCoverage·W·H` at mass 1, area linear in mass), drifts via `HoleMotion` (two-octave sines, x/y different frequencies, clamped to the column width), fades in below mass 0.05, draws via `HoleOverlay` (fixed full-viewport canvas, z-index below the spike panel, pointer-events:none). rAF stops when the tab is hidden OR mass ≈ 0 (restarts on storage change); prefers-reduced-motion → no rAF at all, single static render per change. Renderers consume `controller.currentHole()` so disc and distortion agree to the pixel.
+- **Debug mass override:** spike panel (`?bhspike` / Ctrl+Shift+B only — ships inert) has a 0..1 slider calling `HoleController.setMassOverride()`, bypassing the tracker for visual tuning. Overlay visuals verified by headless screenshots of `test/overlay-sandbox.html` at mass 0.15/0.5/1.0.
+- Headless-Chrome test quirks: `--screenshot` renders black on window-scrolled pages (use the sandbox `?offset=N` margin trick); ES-module imports are CORS-blocked on `file://` (bundle IIFE with `--global-name`).
+- Options page doubles as the live status display (`hole mass N% · M min on X today` via `storage.onChanged`) — the manual test surface for decay without DevTools.
+- Closing the tab is the reset — deliberately no reset button (product decision, see PRODUCT.md).
