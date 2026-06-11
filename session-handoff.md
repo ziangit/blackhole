@@ -1,6 +1,7 @@
 # Session handoff
 
-**Current phase:** Milestones 1 & 2 — BUILT (13/13 unit tests green; awaiting the user's manual pass, script delivered in chat). Next: Milestone 3 — lensing integration.
+**Current phase:** Milestones 1 & 2 — BUILT (13/13 unit tests green; awaiting the user's manual pass, script in docs/MANUAL-TESTS.md). Next: Milestone 3 — lensing integration.
+**Repo:** pushed to https://github.com/ziangit/blackhole (origin/main).
 **Next concrete step:** After the user's manual sign-off, wire `renderMode` settings to renderers driven by live mass (controller already exposes `currentHole()`): apply filter to timeline column only, displacement scale/map radius track mass, spaghetti via IntersectionObserver, perf budget (<4 ms/frame scripting; rolling avg >12 ms → degrade lens → spaghetti → overlay-only, log once), suspend filter while modal/composer open (that's M4 but cheap to do early).
 
 ## Done so far
