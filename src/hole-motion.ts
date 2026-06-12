@@ -19,6 +19,16 @@ export class HoleMotion {
     "(prefers-reduced-motion: reduce)",
   ).matches;
 
+  // Random phases per page load. With FIXED phases, t starts at 0 on every
+  // load and the first ~90 s of the path is the same every time — and that
+  // opening happened to hold x right-of-center nearly the whole first
+  // minute (user: "it's always around the bottom right corner"). Motion
+  // mistake #3: never give a wander deterministic openings.
+  private readonly ph = Array.from(
+    { length: 6 },
+    () => Math.random() * Math.PI * 2,
+  ) as [number, number, number, number, number, number];
+
   position(
     nowMs: number,
     columnRect: DOMRect | null,
@@ -33,14 +43,15 @@ export class HoleMotion {
     const my = Math.min(discRadius + 12, h / 2);
     const ax = columnRect ? columnRect.width * 0.6 : w * 0.25;
     const ay = Math.max(0, h / 2 - my);
+    const [p0, p1, p2, p3, p4, p5] = this.ph;
     let wx =
-      0.5 * Math.sin(t * 0.43) +
-      0.35 * Math.sin(t * 0.211 + 1.7) +
-      0.15 * Math.sin(t * 0.083 + 4.1);
+      0.5 * Math.sin(t * 0.43 + p0) +
+      0.35 * Math.sin(t * 0.211 + p1) +
+      0.15 * Math.sin(t * 0.083 + p2);
     let wy =
-      0.5 * Math.sin(t * 0.331 + 0.9) +
-      0.35 * Math.sin(t * 0.157 + 4.2) +
-      0.15 * Math.sin(t * 0.071 + 2.3);
+      0.5 * Math.sin(t * 0.331 + p3) +
+      0.35 * Math.sin(t * 0.157 + p4) +
+      0.15 * Math.sin(t * 0.071 + p5);
     // Bound the wander to an ellipse: both axes can't peak at once, so the
     // screen corners are geometrically unreachable.
     const n = Math.hypot(wx, wy);
