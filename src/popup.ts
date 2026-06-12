@@ -69,23 +69,23 @@ function render(): void {
   renderMeters();
 }
 
-// Heisenhole: opening the popup steals focus from the page, so heartbeats
-// (visible+focused) PAUSE while you watch — storage freezes and the meters
-// would look static. The model is right to gate on focus; the DISPLAY
-// extrapolates per second from the last persisted state instead:
-// counting up at 1× while the last heartbeat is fresh, decaying at the
-// configured half-life once it isn't. Snaps to truth on every storage
-// write. Display-only — nothing here feeds back into the model.
+// The DISPLAY extrapolates per second from the last persisted state so
+// the meters move in real time; it snaps to truth on every storage write
+// and nothing here feeds back into the model. Three phases keyed on
+// heartbeat freshness (beats land every 5 s while the user is present):
+// - < 12 s since the last beat: actively fed → count up at 1×.
+// - 12–60 s: the model has STOPPED accruing (idle gate) but decay hasn't
+//   started → hold flat. (The old version kept climbing here, which made
+//   "doing nothing" look like it still counted.)
+// - > 60 s: past the active window → show the decay curve ticking down.
 function extrapolatedEff(): number {
   if (!lastState) return 0;
   const eff = lastState.effectiveSeconds;
   if (!settings.enabled || lastState.lastHeartbeatAt <= 0) return eff;
   const since = (Date.now() - lastState.lastHeartbeatAt) / 1000;
   if (since < 0) return eff;
-  if (since < 70) {
-    return Math.min(eff + since, settings.limitMinutes * 60);
-  }
-  // Past the active window: show the decay curve ticking down.
+  if (since < 12) return Math.min(eff + since, settings.limitMinutes * 60);
+  if (since < 60) return eff;
   return eff * 0.5 ** (since / 60 / settings.decayHalfLifeMinutes);
 }
 
@@ -113,10 +113,12 @@ function renderMeters(): void {
     lastState.lastHeartbeatAt > 0
       ? (Date.now() - lastState.lastHeartbeatAt) / 1000
       : Infinity;
-  const browsingNow = sinceBeat < 70;
+  const browsingNow = sinceBeat < 12;
   mActive.textContent = browsingNow
     ? `browsing now — ${fmtDur(eff)} of active time banked`
-    : `away — ${fmtDur(eff)} banked, decaying`;
+    : sinceBeat < 60
+      ? `idle — ${fmtDur(eff)} banked (decay starts soon)`
+      : `away — ${fmtDur(eff)} banked, decaying`;
 
   if (settings.forceShow) {
     mAppear.textContent = "hole is forced on (Show Black Hole Now)";

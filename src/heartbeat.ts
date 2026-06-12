@@ -17,7 +17,14 @@ import { diagDec, diagInc } from "./diag";
 import { DEFAULT_SETTINGS, loadSettings } from "./settings";
 
 const HEARTBEAT_MS = 5000;
-const IDLE_AFTER_MS = 90_000;
+// No input for this long ⇒ idle, full stop. Short on purpose: "doing
+// nothing" must stop the clock fast (user-reported); active reading
+// involves scrolling well inside this window.
+const IDLE_AFTER_MS = 30_000;
+// pointermove only counts after this much CUMULATIVE travel — a hand
+// resting on the mouse/trackpad jitters out events without the user
+// doing anything.
+const MOVE_THRESHOLD_PX = 30;
 
 export function initHeartbeat(): void {
   let enabled = DEFAULT_SETTINGS.enabled;
@@ -55,7 +62,24 @@ export function initHeartbeat(): void {
   diagInc("listener"); // keydown (app-lifetime)
   window.addEventListener("keydown", bump, { passive: true });
   diagInc("listener"); // pointermove (app-lifetime) — reading wiggles the mouse
-  window.addEventListener("pointermove", bump, { passive: true });
+  let moveAccum = 0;
+  let lastMX = -1;
+  let lastMY = -1;
+  window.addEventListener(
+    "pointermove",
+    (e) => {
+      if (lastMX >= 0) {
+        moveAccum += Math.abs(e.clientX - lastMX) + Math.abs(e.clientY - lastMY);
+      }
+      lastMX = e.clientX;
+      lastMY = e.clientY;
+      if (moveAccum >= MOVE_THRESHOLD_PX) {
+        moveAccum = 0;
+        bump();
+      }
+    },
+    { passive: true },
+  );
   diagInc("listener"); // visibilitychange (app-lifetime) — tab switch is input
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") bump();
