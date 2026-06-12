@@ -5,6 +5,7 @@ const $ = <T extends HTMLElement>(id: string): T =>
   document.getElementById(id) as T;
 
 const enabled = $<HTMLInputElement>("enabled");
+const appear = $<HTMLInputElement>("appear");
 const limit = $<HTMLInputElement>("limit");
 const decay = $<HTMLInputElement>("decay");
 const mode = $<HTMLSelectElement>("mode");
@@ -24,6 +25,7 @@ async function save(): Promise<void> {
     decayHalfLifeMinutes: num(decay, 1, 240, 10),
     renderMode: mode.value as RenderMode,
     maxCoverage: num(coverage, 5, 60, 35) / 100,
+    appearAfterMinutes: num(appear, 0, 480, 0),
   };
   await chrome.storage.local.set({ settings });
 }
@@ -38,13 +40,14 @@ function renderStatus(state: HoleState | undefined): void {
 async function init(): Promise<void> {
   const s = await loadSettings();
   enabled.checked = s.enabled;
+  appear.value = String(s.appearAfterMinutes);
   limit.value = String(s.limitMinutes);
   decay.value = String(s.decayHalfLifeMinutes);
   mode.value = s.renderMode;
   coverage.value = String(Math.round(s.maxCoverage * 100));
   coverageOut.textContent = `${coverage.value}%`;
 
-  for (const el of [enabled, limit, decay, mode, coverage]) {
+  for (const el of [enabled, appear, limit, decay, mode, coverage]) {
     el.addEventListener("change", () => void save());
   }
   coverage.addEventListener("input", () => {

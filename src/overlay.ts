@@ -11,6 +11,14 @@ const TAU = Math.PI * 2;
 const HOTSPOT_RATE = 0.55; // rad/s — one orbit ≈ 11 s
 const HOTSPOT_PHASE = 2.4; // t=0 → lower-left, like the reference
 
+// Grok-logo-style orbit: a tilted elliptical accretion ring around the
+// disc. The back half passes BEHIND the hole (drawn before the disc, dim),
+// the front half crosses in front of it (drawn after, bright) — the
+// Saturn/Gargantua look. The hotspot travels this ellipse.
+const ORBIT_A = 1.7; // semi-major axis / discR
+const ORBIT_B = 0.5; // semi-minor axis / discR (inclined view)
+const ORBIT_TILT = -0.42; // rad — the logo's diagonal
+
 export class HoleOverlay {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -110,6 +118,26 @@ export class HoleOverlay {
       ctx.stroke();
     }
 
+    // orbit geometry (shared by both arc halves and the hotspot)
+    const oa = discR * ORBIT_A;
+    const ob = discR * ORBIT_B;
+    const theta = HOTSPOT_PHASE + tSec * HOTSPOT_RATE;
+    const ou = oa * Math.cos(theta);
+    const ov = ob * Math.sin(theta);
+    const hx = x + ou * Math.cos(ORBIT_TILT) - ov * Math.sin(ORBIT_TILT);
+    const hy = y + ou * Math.sin(ORBIT_TILT) + ov * Math.cos(ORBIT_TILT);
+    const hotspotInFront = Math.sin(theta) > 0;
+
+    // back half of the orbit ring — occluded by the disc drawn after it
+    ctx.save();
+    ctx.lineWidth = Math.max(2, discR * 0.045);
+    ctx.strokeStyle = `rgba(255,170,90,${0.35 * (0.5 + 0.5 * mass)})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y, oa, ob, ORBIT_TILT, Math.PI, TAU);
+    ctx.stroke();
+    ctx.restore();
+    if (!hotspotInFront) this.drawHotspot(hx, hy, discR * 0.8, mass * 0.55);
+
     // photon ring — THICK and bright like the reference, soft outer bloom
     // plus a crisp white core stroke
     ctx.save();
@@ -128,12 +156,32 @@ export class HoleOverlay {
     ctx.stroke();
     ctx.restore();
 
-    // accretion hotspot — white-hot blob orbiting the ring (Doppler-bright
-    // side of the accretion disc in the reference)
-    const theta = HOTSPOT_PHASE + tSec * HOTSPOT_RATE;
-    const hx = x + Math.cos(theta) * discR * 1.03;
-    const hy = y + Math.sin(theta) * discR * 1.03;
-    const hotR = Math.max(8, discR * 0.65);
+    // event horizon
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(x, y, discR, 0, TAU);
+    ctx.fill();
+
+    // front half of the orbit ring — crosses IN FRONT of the disc
+    ctx.save();
+    ctx.lineWidth = Math.max(2.5, discR * 0.055);
+    ctx.strokeStyle = `rgba(255,205,140,${0.75 * (0.5 + 0.5 * mass)})`;
+    ctx.shadowColor = "rgba(255,180,100,0.8)";
+    ctx.shadowBlur = Math.max(4, discR * 0.08);
+    ctx.beginPath();
+    ctx.ellipse(x, y, oa, ob, ORBIT_TILT, 0, Math.PI);
+    ctx.stroke();
+    ctx.restore();
+    if (hotspotInFront) this.drawHotspot(hx, hy, discR * 1.0, mass);
+
+    ctx.restore();
+  }
+
+  // White-hot accretion blob (Doppler-bright side of the disc in the
+  // reference). Scaled/dimmed when on the far side of the orbit.
+  private drawHotspot(hx: number, hy: number, r: number, mass: number): void {
+    const ctx = this.ctx;
+    const hotR = Math.max(8, r * 0.65);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     const hot = ctx.createRadialGradient(hx, hy, 0, hx, hy, hotR);
@@ -145,14 +193,6 @@ export class HoleOverlay {
     ctx.beginPath();
     ctx.arc(hx, hy, hotR, 0, TAU);
     ctx.fill();
-    ctx.restore();
-
-    // event horizon
-    ctx.fillStyle = "#000";
-    ctx.beginPath();
-    ctx.arc(x, y, discR, 0, TAU);
-    ctx.fill();
-
     ctx.restore();
   }
 

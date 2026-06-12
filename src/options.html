@@ -35,9 +35,15 @@
   </div>
 
   <div class="row">
+    <label for="appear">Appears after (minutes)</label>
+    <input type="number" id="appear" min="0" max="480" step="1">
+    <p class="hint">Grace period: no hole until you've spent this long on X. 0 = appears immediately.</p>
+  </div>
+
+  <div class="row">
     <label for="limit">Limit (minutes)</label>
     <input type="number" id="limit" min="1" max="480" step="1">
-    <p class="hint">Continuous scrolling for this long grows the hole to full mass.</p>
+    <p class="hint">After it appears, scrolling for this long grows the hole to full mass.</p>
   </div>
 
   <div class="row">
