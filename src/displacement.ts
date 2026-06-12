@@ -12,7 +12,7 @@
 export const MAP_SIZE = 256;
 
 const EVENT_R = 0.15;
-const STRENGTH = 0.085;
+const STRENGTH = 0.12;
 const SWIRL = 0.8; // tangential : radial deflection ratio
 
 export function renderDisplacementMap(

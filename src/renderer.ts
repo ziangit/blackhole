@@ -35,7 +35,18 @@ export type MapSource = "data" | "packaged";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const FILTER_ID = "event-horizon-lens";
-const MAX_SCALE = 150; // feDisplacementMap scale at mass 1 (max shift = scale/2)
+const MAX_SCALE = 200; // feDisplacementMap scale at mass 1 (max shift = scale/2)
+
+// Chromatic aberration: the page is split into R/G/B and each channel is
+// displaced at a slightly different strength, then recombined additively —
+// lensed content gets the rainbow fringing of the reference shader. Three
+// displacement passes ≈ 3× filter raster cost; the degrade ladder is the
+// safety net on slow machines.
+const CHANNELS: { matrix: string; mul: number }[] = [
+  { matrix: "1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0", mul: 1.06 },
+  { matrix: "0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0", mul: 1.0 },
+  { matrix: "0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0", mul: 0.94 },
+];
 
 // Warp intensity ∝ mass^GAMMA. Front-loaded on purpose: the effect must be
 // obvious in the first minutes (mass 0.1 → ~40% intensity), not only at the
@@ -60,7 +71,7 @@ export function svgEl(tag: string, attrs: Record<string, string>): SVGElement {
 function buildLensFilter(): {
   svg: SVGSVGElement;
   feImage: SVGElement;
-  disp: SVGElement;
+  disps: { el: SVGElement; mul: number }[];
 } {
   const svg = svgEl("svg", {
     width: "0",
@@ -94,22 +105,59 @@ function buildLensFilter(): {
     svgEl("feMergeNode", { in: "neutral" }),
     svgEl("feMergeNode", { in: "map" }),
   );
-  const disp = svgEl("feDisplacementMap", {
-    in: "SourceGraphic",
-    in2: "fullmap",
-    scale: "0",
-    xChannelSelector: "R",
-    yChannelSelector: "G",
+  filter.append(flood, feImage, merge);
+
+  // One isolate→displace pass per color channel, then add them back up.
+  const disps: { el: SVGElement; mul: number }[] = [];
+  CHANNELS.forEach(({ matrix, mul }, i) => {
+    filter.append(
+      svgEl("feColorMatrix", {
+        in: "SourceGraphic",
+        type: "matrix",
+        values: matrix,
+        result: `ch${i}`,
+      }),
+    );
+    const disp = svgEl("feDisplacementMap", {
+      in: `ch${i}`,
+      in2: "fullmap",
+      scale: "0",
+      xChannelSelector: "R",
+      yChannelSelector: "G",
+      result: `disp${i}`,
+    });
+    filter.append(disp);
+    disps.push({ el: disp, mul });
   });
-  filter.append(flood, feImage, merge, disp);
+  filter.append(
+    svgEl("feComposite", {
+      in: "disp0",
+      in2: "disp1",
+      operator: "arithmetic",
+      k1: "0",
+      k2: "1",
+      k3: "1",
+      k4: "0",
+      result: "rg",
+    }),
+    svgEl("feComposite", {
+      in: "rg",
+      in2: "disp2",
+      operator: "arithmetic",
+      k1: "0",
+      k2: "1",
+      k3: "1",
+      k4: "0",
+    }),
+  );
   svg.append(filter);
-  return { svg, feImage, disp };
+  return { svg, feImage, disps };
 }
 
 export class FilterLensRenderer implements LensRenderer {
   private svg: SVGSVGElement;
   private feImage: SVGElement;
-  private disp: SVGElement;
+  private disps: { el: SVGElement; mul: number }[];
   private column: HTMLElement | null = null;
   private savedFilter = "";
   private lastX = Infinity;
@@ -118,10 +166,10 @@ export class FilterLensRenderer implements LensRenderer {
   private lastScale = Infinity;
 
   constructor(source: MapSource = "data") {
-    const { svg, feImage, disp } = buildLensFilter();
+    const { svg, feImage, disps } = buildLensFilter();
     this.svg = svg;
     this.feImage = feImage;
-    this.disp = disp;
+    this.disps = disps;
     // Static map (reference mass) — per-frame work is attribute-only.
     this.setHref(
       source === "packaged"
@@ -178,7 +226,9 @@ export class FilterLensRenderer implements LensRenderer {
     }
     const scale = MAX_SCALE * Math.pow(hole.mass, WARP_GAMMA);
     if (Math.abs(scale - this.lastScale) > 0.5) {
-      this.disp.setAttribute("scale", scale.toFixed(1));
+      for (const { el, mul } of this.disps) {
+        el.setAttribute("scale", (scale * mul).toFixed(1));
+      }
       this.lastScale = scale;
     }
   }

@@ -50,7 +50,7 @@ function encodePNG(width, height, rgba) {
 // outside the hole's influence.
 export function generateDisplacementPNG(size = 256, mass = 1) {
   const EVENT_R = 0.15;
-  const STRENGTH = 0.085;
+  const STRENGTH = 0.12;
   const SWIRL = 0.8;
   const rgba = Buffer.alloc(size * size * 4);
   const c = (size - 1) / 2;

@@ -33,14 +33,21 @@ export class HoleMotion {
     const my = Math.min(discRadius + 12, h / 2);
     const ax = columnRect ? columnRect.width * 0.6 : w * 0.25;
     const ay = Math.max(0, h / 2 - my);
-    const wx =
+    let wx =
       0.5 * Math.sin(t * 0.43) +
       0.35 * Math.sin(t * 0.211 + 1.7) +
       0.15 * Math.sin(t * 0.083 + 4.1);
-    const wy =
+    let wy =
       0.5 * Math.sin(t * 0.331 + 0.9) +
       0.35 * Math.sin(t * 0.157 + 4.2) +
       0.15 * Math.sin(t * 0.071 + 2.3);
+    // Bound the wander to an ellipse: both axes can't peak at once, so the
+    // screen corners are geometrically unreachable.
+    const n = Math.hypot(wx, wy);
+    if (n > 1) {
+      wx /= n;
+      wy /= n;
+    }
     return {
       x: Math.min(Math.max(cx + wx * ax, mx), w - mx),
       y: h / 2 + wy * ay,

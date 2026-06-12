@@ -18,7 +18,10 @@ import { DEFAULT_SETTINGS, loadSettings, type Settings } from "./settings";
 
 const FADE_MASS = 0.05;
 const MASS_TAU_MS = 700; // eased mass time constant — never pops
-const INFLUENCE_FACTOR = 2.6; // lens influence radius vs disc radius
+// Lens influence radius vs disc radius. Keep 1/INFLUENCE_FACTOR ≥ ~0.83 ×
+// sqrt(STRENGTH) (displacement.ts): the map's saturated core must stay
+// mostly under the black disc, with only a thin full-wrap band showing.
+const INFLUENCE_FACTOR = 3.5;
 const COLUMN_REACQUIRE_MS = 1000;
 const MODAL_CHECK_MS = 300; // DOM query for open dialogs, throttled
 const REDUCED_POLL_MS = 600; // reduced motion has no rAF to notice modals with

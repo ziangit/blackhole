@@ -66,6 +66,17 @@ export class HoleOverlay {
     ctx.save();
     ctx.globalAlpha = alpha;
 
+    // dark vignette around the hole — the reference dims the surroundings,
+    // which also makes the warped content pop
+    const veilR = discR * 3.2;
+    const veil = ctx.createRadialGradient(x, y, discR * 1.05, x, y, veilR);
+    veil.addColorStop(0, `rgba(0,0,0,${0.12 + 0.25 * mass})`);
+    veil.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = veil;
+    ctx.beginPath();
+    ctx.arc(x, y, veilR, 0, TAU);
+    ctx.fill();
+
     // accretion glow — tight around the ring; the surroundings stay dark
     // like the reference, the chroma rings carry the color further out
     const glowR = discR * 1.9;
@@ -99,12 +110,19 @@ export class HoleOverlay {
       ctx.stroke();
     }
 
-    // photon ring — thin, bright, slightly warm, with a soft bloom
+    // photon ring — THICK and bright like the reference, soft outer bloom
+    // plus a crisp white core stroke
     ctx.save();
-    ctx.lineWidth = Math.max(1.5, discR * 0.022);
-    ctx.strokeStyle = "rgba(255,246,230,0.98)";
-    ctx.shadowColor = "rgba(255,200,120,0.95)";
-    ctx.shadowBlur = Math.max(5, discR * 0.16);
+    ctx.lineWidth = Math.max(3, discR * 0.07);
+    ctx.strokeStyle = "rgba(255,243,222,0.92)";
+    ctx.shadowColor = "rgba(255,210,140,0.95)";
+    ctx.shadowBlur = Math.max(8, discR * 0.2);
+    ctx.beginPath();
+    ctx.arc(x, y, discR * 1.045, 0, TAU);
+    ctx.stroke();
+    ctx.lineWidth = Math.max(1.5, discR * 0.03);
+    ctx.strokeStyle = "rgba(255,255,252,0.98)";
+    ctx.shadowBlur = 0;
     ctx.beginPath();
     ctx.arc(x, y, discR * 1.03, 0, TAU);
     ctx.stroke();
@@ -115,7 +133,7 @@ export class HoleOverlay {
     const theta = HOTSPOT_PHASE + tSec * HOTSPOT_RATE;
     const hx = x + Math.cos(theta) * discR * 1.03;
     const hy = y + Math.sin(theta) * discR * 1.03;
-    const hotR = Math.max(6, discR * 0.5);
+    const hotR = Math.max(8, discR * 0.65);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     const hot = ctx.createRadialGradient(hx, hy, 0, hx, hy, hotR);
