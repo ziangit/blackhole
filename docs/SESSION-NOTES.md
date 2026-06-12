@@ -33,7 +33,19 @@ feDisplacementMap already is. So:
   new policy; SECURITY-AUDIT scope sections updated; STORE-LISTING marked
   stale pending a rewrite for the broad-host review track.
 
-Awaiting the user's manual check of the new look on real sites.
+User checked the GLSL look on real x.com: **"Looks great!"** (their
+screenshot shows the lensed-starfield swirl at mass 0.36 — the reference
+aesthetic achieved). The "no hole visible" confusion before that was the
+graceMinutes default (5) doing its job — panel showed m0.00 with zero
+resources, i.e. the below-grace contract holding in production.
+
+Follow-up request: a real-extension UX like their macOS menu-bar app
+reference → **toolbar popup** (action.default_popup): "Show Black Hole
+Now" = `forceShow` (forced presence, not a reset), break-in presets =
+graceMinutes writers (keeping a ≥15 min growth window), Enabled toggle,
+Custom…→options. Options save now preserves popup-owned fields.
+
+Awaiting the user's manual check of the popup.
 
 ## 2026-06-11/12 — M3 → live-feedback rounds → 1.0.0 pre-publish
 

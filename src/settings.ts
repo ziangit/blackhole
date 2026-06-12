@@ -13,6 +13,12 @@ export interface Settings {
    * total. Must be < limitMinutes (sanitizeSettings enforces it).
    */
   graceMinutes: number;
+  /**
+   * Popup "Show Black Hole Now": presence forced to near-full regardless
+   * of tracked time. Not a reset — tracking continues underneath, and
+   * turning it off returns to the tracked mass.
+   */
+  forceShow: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -22,6 +28,7 @@ export const DEFAULT_SETTINGS: Settings = {
   renderMode: "auto",
   maxCoverage: 0.35,
   graceMinutes: 5,
+  forceShow: false,
 };
 
 /**

@@ -154,8 +154,11 @@ export class HoleController {
   }
 
   private effectiveTarget(): number {
-    if (this.override !== null) return this.override;
-    return this.settings.enabled ? this.targetMass : 0;
+    if (this.override !== null) return this.override; // debug pin (spike)
+    if (!this.settings.enabled) return 0;
+    // Popup "Show Black Hole Now": forced presence on top of tracking.
+    if (this.settings.forceShow) return Math.max(this.targetMass, 0.85);
+    return this.targetMass;
   }
 
   private wake(): void {

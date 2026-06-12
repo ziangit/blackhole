@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 12px; background: #0b0e13; color: #e7e9ea;
+    font: 13px/1.45 -apple-system, system-ui, sans-serif; width: 240px;
+  }
+  #status { color: #f9a826; font-size: 11px; margin: 0 0 10px; min-height: 1em; }
+  button {
+    display: block; width: 100%; text-align: left; padding: 8px 10px;
+    background: #15202b; color: #e7e9ea; border: 1px solid #38444d;
+    border-radius: 8px; font: inherit; cursor: pointer; margin: 0 0 6px;
+  }
+  button:hover { background: #1d2733; }
+  button.active { border-color: #f9a826; color: #f9a826; }
+  #showNow { font-weight: 700; }
+  .label { color: #71767b; font-size: 11px; margin: 10px 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  #presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  #presets button { text-align: center; padding: 7px 0; margin: 0; }
+  .row { display: flex; align-items: center; gap: 8px; margin-top: 12px;
+         border-top: 1px solid #38444d; padding-top: 10px; }
+  .row input { width: 16px; height: 16px; accent-color: #f9a826; }
+  .row a { color: #71767b; margin-left: auto; font-size: 12px; cursor: pointer; }
+  .row a:hover { color: #e7e9ea; }
+</style>
+</head>
+<body>
+  <p id="status">—</p>
+
+  <button id="showNow">Show Black Hole Now</button>
+
+  <p class="label">Appears after browsing</p>
+  <div id="presets"></div>
+  <button id="custom" style="margin-top:6px;">Custom…</button>
+
+  <div class="row">
+    <input type="checkbox" id="enabled">
+    <label for="enabled">Enabled</label>
+    <a id="options">All settings</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -23,9 +23,15 @@ for (const size of [16, 48, 128]) {
 }
 cpSync("manifest.json", "dist/manifest.json");
 cpSync("src/options.html", "dist/options.html");
+cpSync("src/popup.html", "dist/popup.html");
 
 const ctx = await esbuild.context({
-  entryPoints: ["src/content.ts", "src/background.ts", "src/options.ts"],
+  entryPoints: [
+    "src/content.ts",
+    "src/background.ts",
+    "src/options.ts",
+    "src/popup.ts",
+  ],
   bundle: true,
   outdir: "dist",
   format: "iife",
