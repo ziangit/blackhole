@@ -5,8 +5,8 @@ V3 — born on X/Twitter, now runs on every site). The longer you browse,
 the bigger a black hole grows inside the page — gravitationally lensing
 the actual content, with real page elements bending and swirling into it,
 ringed by a GLSL-rendered accretion disc and lensed starfield. Step away
-and it slowly starves and shrinks. Closing the tab is the reset; there is
-deliberately no reset button.
+and it slowly starves and shrinks — or use "Reset the hole" in the
+toolbar popup to start over (your daily minutes counter survives).
 
 Inspired by [s13k's ghostty-blackhole](https://github.com/s0xDk/ghostty-blackhole) —
 a Ghostty shader where a black hole grows the longer you *work*. This

@@ -15,7 +15,7 @@ Key framing: the effect must warp the REAL page — actual tweets displaced by t
 
 ## Non-goals (explicitly out of scope for now)
 - No analytics, telemetry, or network calls of any kind — all data stays local.
-- No one-click reset button — closing the tab is the reset mechanism.
+- ~~No one-click reset button — closing the tab is the reset mechanism.~~ Superseded 2026-06-12 (owner decision): the toolbar popup has "Reset the hole"; it zeroes the banked time but keeps the daily badge counter. No reset affordances anywhere else.
 - No framework (React/etc.) — plain TypeScript + esbuild.
 - No support for sites other than x.com / twitter.com.
 - No blocking/hiding of content — the hole annoys; it must not malfunction or censor.

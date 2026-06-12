@@ -17,7 +17,10 @@ import type { RenderManager } from "./render-manager";
 import type { Hole } from "./renderer";
 import { DEFAULT_SETTINGS, loadSettings, type Settings } from "./settings";
 
-const FADE_MASS = 0.05;
+// Fade-in completes by this mass. Kept tiny so the hole is BORN AT SIZE
+// ZERO and visibly grows from a dot — at the old 0.05, √-area scaling
+// meant it materialized already at ~22% of full radius.
+const FADE_MASS = 0.01;
 const MASS_TAU_MS = 700; // eased mass time constant — never pops
 // "The black hole should be small, but its affected area should be big":
 // the disc is shrunk below the coverage-derived radius, and the lens

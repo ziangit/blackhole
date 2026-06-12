@@ -4,7 +4,9 @@
 // Now, break-in presets + inline custom minutes (our graceMinutes),
 // enable toggle, and a door to the full options page.
 // All state flows through chrome.storage.local; the content script
-// live-applies via storage.onChanged. Deliberately NO mass reset here.
+// live-applies via storage.onChanged. Includes a mass reset — owner
+// decision 2026-06-12, superseding the original "closing the tab is the
+// only reset" rule (see PRODUCT.md).
 
 import { computeMass, type HoleState } from "./mass";
 import {
@@ -25,6 +27,7 @@ const mActive = $<HTMLDivElement>("mActive");
 const mAppear = $<HTMLDivElement>("mAppear");
 const mGone = $<HTMLDivElement>("mGone");
 const showNow = $<HTMLButtonElement>("showNow");
+const resetBtn = $<HTMLButtonElement>("reset");
 const presets = $<HTMLDivElement>("presets");
 const customMin = $<HTMLInputElement>("customMin");
 const applyCustom = $<HTMLButtonElement>("applyCustom");
@@ -171,6 +174,18 @@ async function init(): Promise<void> {
 
   showNow.addEventListener("click", () => {
     void save({ forceShow: !settings.forceShow });
+  });
+  resetBtn.addEventListener("click", () => {
+    void (async () => {
+      // Zero the banked time (the hole starves instantly); keep the daily
+      // badge counter — minutes browsed today still happened.
+      const { state } = await chrome.storage.local.get("state");
+      const s = (state ?? {}) as HoleState;
+      await chrome.storage.local.set({
+        state: { ...s, effectiveSeconds: 0, mass: 0 },
+      });
+      if (settings.forceShow) await save({ forceShow: false });
+    })();
   });
   enabled.addEventListener("change", () => {
     void save({ enabled: enabled.checked });

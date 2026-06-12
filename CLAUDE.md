@@ -15,7 +15,7 @@ Chrome extension (MV3) that grows a gravitationally-lensing black hole inside th
 - Never intercept clicks, never modify/hide tweet text, never break scrolling.
 - Apply SVG filters to the timeline column only — NOT `body` (breaks fixed-position elements and perf).
 - Perf budget: < 4 ms scripting per frame; auto-degrade lens → spaghetti → overlay-only if rolling frame avg exceeds ~12 ms.
-- No one-click mass reset button — closing the tab IS the reset.
+- Mass reset lives ONLY in the toolbar popup ("Reset the hole") — owner decision 2026-06-12, superseding the original "closing the tab is the only reset" rule. Never add reset affordances elsewhere (options page, content UI).
 - Respect `prefers-reduced-motion`: static hole, no drift, no animation.
 - X is a React SPA with virtualized scrolling: never assume the timeline container exists at injection time or survives navigation (MutationObserver + periodic re-acquire of `main[role="main"]`).
 

@@ -51,8 +51,9 @@ for everything below.
 15. With the hole visible, change Max coverage 35→15% — disc shrinks within a
     second, no reload. Toggle Enabled off — hole eases out, heartbeats stop;
     back on — resumes.
-16. Confirm there is no reset button anywhere; closing the X tab(s) and waiting
-    is the only way to starve it.
+16. (Updated 2026-06-12) The ONLY reset affordance is "Reset the hole" in the
+    toolbar popup: it zeroes banked time (hole starves instantly) but keeps
+    today's badge minutes. Confirm no reset exists anywhere else.
 
 ## 7. Lensing integration (M3)
 17. Open `https://x.com/home?bhspike`, tick the override, set mass ~0.5. With
