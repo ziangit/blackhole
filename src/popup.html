@@ -8,7 +8,15 @@
     margin: 0; padding: 12px; background: #0b0e13; color: #e7e9ea;
     font: 13px/1.45 -apple-system, system-ui, sans-serif; width: 240px;
   }
-  #status { color: #f9a826; font-size: 11px; margin: 0 0 10px; min-height: 1em; }
+  #status { color: #f9a826; font-size: 11px; margin: 0 0 6px; min-height: 1em; }
+  #meters { color: #9aa3ab; font-size: 11px; line-height: 1.5; margin: 0 0 10px;
+            border-left: 2px solid #38444d; padding-left: 8px; }
+  #customRow { display: flex; gap: 6px; margin-top: 6px; }
+  #customRow input {
+    flex: 1; min-width: 0; padding: 7px 10px; background: #15202b;
+    color: #e7e9ea; border: 1px solid #38444d; border-radius: 8px; font: inherit;
+  }
+  #customRow button { width: auto; margin: 0; }
   button {
     display: block; width: 100%; text-align: left; padding: 8px 10px;
     background: #15202b; color: #e7e9ea; border: 1px solid #38444d;
@@ -29,12 +37,20 @@
 </head>
 <body>
   <p id="status">—</p>
+  <div id="meters">
+    <div id="mActive">—</div>
+    <div id="mAppear">—</div>
+    <div id="mGone">—</div>
+  </div>
 
   <button id="showNow">Show Black Hole Now</button>
 
   <p class="label">Appears after browsing</p>
   <div id="presets"></div>
-  <button id="custom" style="margin-top:6px;">Custom…</button>
+  <div id="customRow">
+    <input type="number" id="customMin" min="0" max="479" step="1" placeholder="Custom minutes">
+    <button id="applyCustom">Apply</button>
+  </div>
 
   <div class="row">
     <input type="checkbox" id="enabled">
