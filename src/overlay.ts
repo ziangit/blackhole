@@ -15,8 +15,8 @@ const HOTSPOT_PHASE = 2.4; // t=0 → lower-left, like the reference
 // disc. The back half passes BEHIND the hole (drawn before the disc, dim),
 // the front half crosses in front of it (drawn after, bright) — the
 // Saturn/Gargantua look. The hotspot travels this ellipse.
-const ORBIT_A = 1.7; // semi-major axis / discR
-const ORBIT_B = 0.5; // semi-minor axis / discR (inclined view)
+const ORBIT_A = 2.8; // semi-major axis / discR
+const ORBIT_B = 0.85; // semi-minor axis / discR (inclined view)
 const ORBIT_TILT = -0.42; // rad — the logo's diagonal
 
 export class HoleOverlay {
@@ -76,7 +76,7 @@ export class HoleOverlay {
 
     // dark vignette around the hole — the reference dims the surroundings,
     // which also makes the warped content pop
-    const veilR = discR * 3.2;
+    const veilR = discR * 5;
     const veil = ctx.createRadialGradient(x, y, discR * 1.05, x, y, veilR);
     veil.addColorStop(0, `rgba(0,0,0,${0.12 + 0.25 * mass})`);
     veil.addColorStop(1, "rgba(0,0,0,0)");
@@ -87,7 +87,7 @@ export class HoleOverlay {
 
     // accretion glow — tight around the ring; the surroundings stay dark
     // like the reference, the chroma rings carry the color further out
-    const glowR = discR * 1.9;
+    const glowR = discR * 2.2;
     const glow = ctx.createRadialGradient(x, y, discR * 0.9, x, y, glowR);
     glow.addColorStop(0, `rgba(255,150,70,${0.14 + 0.16 * mass})`);
     glow.addColorStop(0.45, `rgba(255,120,40,${0.04 + 0.06 * mass})`);
@@ -101,7 +101,7 @@ export class HoleOverlay {
     // with distance (the drawn stand-in for the shader's lensed rings)
     const chromaOff = Math.max(1.5, discR * 0.02);
     for (let i = 0; i < 3; i++) {
-      const rr = discR * (1.16 + i * 0.24);
+      const rr = discR * (1.5 + i * 0.8);
       const a = (0.4 / (i + 1)) * (0.4 + 0.6 * mass);
       ctx.lineWidth = Math.max(1.2, discR * (0.022 - i * 0.005));
       ctx.strokeStyle = `rgba(255,90,50,${a})`;
@@ -130,13 +130,13 @@ export class HoleOverlay {
 
     // back half of the orbit ring — occluded by the disc drawn after it
     ctx.save();
-    ctx.lineWidth = Math.max(2, discR * 0.045);
-    ctx.strokeStyle = `rgba(255,170,90,${0.35 * (0.5 + 0.5 * mass)})`;
+    ctx.lineWidth = Math.max(2.5, discR * 0.06);
+    ctx.strokeStyle = `rgba(255,180,100,${0.55 * (0.5 + 0.5 * mass)})`;
     ctx.beginPath();
     ctx.ellipse(x, y, oa, ob, ORBIT_TILT, Math.PI, TAU);
     ctx.stroke();
     ctx.restore();
-    if (!hotspotInFront) this.drawHotspot(hx, hy, discR * 0.8, mass * 0.55);
+    if (!hotspotInFront) this.drawHotspot(hx, hy, discR * 0.9, mass * 0.55);
 
     // photon ring — THICK and bright like the reference, soft outer bloom
     // plus a crisp white core stroke
@@ -164,15 +164,15 @@ export class HoleOverlay {
 
     // front half of the orbit ring — crosses IN FRONT of the disc
     ctx.save();
-    ctx.lineWidth = Math.max(2.5, discR * 0.055);
-    ctx.strokeStyle = `rgba(255,205,140,${0.75 * (0.5 + 0.5 * mass)})`;
-    ctx.shadowColor = "rgba(255,180,100,0.8)";
-    ctx.shadowBlur = Math.max(4, discR * 0.08);
+    ctx.lineWidth = Math.max(3, discR * 0.075);
+    ctx.strokeStyle = `rgba(255,215,155,${0.95 * (0.5 + 0.5 * mass)})`;
+    ctx.shadowColor = "rgba(255,190,110,0.9)";
+    ctx.shadowBlur = Math.max(6, discR * 0.14);
     ctx.beginPath();
     ctx.ellipse(x, y, oa, ob, ORBIT_TILT, 0, Math.PI);
     ctx.stroke();
     ctx.restore();
-    if (hotspotInFront) this.drawHotspot(hx, hy, discR * 1.0, mass);
+    if (hotspotInFront) this.drawHotspot(hx, hy, discR * 1.2, mass);
 
     ctx.restore();
   }

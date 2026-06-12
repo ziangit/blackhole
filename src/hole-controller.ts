@@ -18,10 +18,19 @@ import { DEFAULT_SETTINGS, loadSettings, type Settings } from "./settings";
 
 const FADE_MASS = 0.05;
 const MASS_TAU_MS = 700; // eased mass time constant — never pops
-// Lens influence radius vs disc radius. Keep 1/INFLUENCE_FACTOR ≥ ~0.83 ×
-// sqrt(STRENGTH) (displacement.ts): the map's saturated core must stay
-// mostly under the black disc, with only a thin full-wrap band showing.
-const INFLUENCE_FACTOR = 3.5;
+// "The black hole should be small, but its affected area should be big":
+// the disc is shrunk below the coverage-derived radius, and the lens
+// influence is a large multiple of it. The visible full-wrap band outside
+// the disc spans 1/INFLUENCE_FACTOR .. ~0.83·sqrt(STRENGTH) of the
+// influence radius (displacement.ts) — keep it a band, not a donut.
+const DISC_SCALE = 0.62;
+const INFLUENCE_FACTOR = 6;
+
+// Ambient frame cap: the drifting hole invalidates the SVG filter raster
+// (3 displacement passes over the column) on every change — at 60-120 fps
+// that cooks laptops. Drift/orbit redraw at ~30 fps; scrolling and mass
+// changes bypass the cap so the warp stays pixel-locked to the page.
+const DRAW_MIN_INTERVAL_MS = 33;
 const COLUMN_REACQUIRE_MS = 1000;
 const MODAL_CHECK_MS = 300; // DOM query for open dialogs, throttled
 const REDUCED_POLL_MS = 600; // reduced motion has no rAF to notice modals with
@@ -45,6 +54,9 @@ export class HoleController {
   private orphanCheckedAt = 0;
   private reducedPoll = 0;
   private dead = false;
+  private lastDrawAt = 0;
+  private lastScrollY = -1;
+  private lastDrawnMass = -1;
 
   constructor(private renderManager: RenderManager | null = null) {}
 
@@ -200,19 +212,35 @@ export class HoleController {
     }
     const m = this.easedMass;
 
+    // Ambient 30 fps cap (cheap checks only — no layout reads). Scrolling
+    // or a changing mass renders at full rate; pure drift waits its turn.
+    // Reduced motion renders only on demand, so it always passes through.
+    const scrollY = window.scrollY;
+    if (
+      !this.motion.reduced &&
+      Math.abs(scrollY - this.lastScrollY) < 0.5 &&
+      Math.abs(m - this.lastDrawnMass) < 0.0015 &&
+      now - this.lastDrawAt < DRAW_MIN_INTERVAL_MS
+    ) {
+      return;
+    }
+    this.lastDrawAt = now;
+    this.lastScrollY = scrollY;
+    this.lastDrawnMass = m;
+
     if (now - this.columnCheckedAt > COLUMN_REACQUIRE_MS || !this.column?.isConnected) {
       this.column = acquireColumn();
       this.columnCheckedAt = now;
     }
     const colRect = this.column?.getBoundingClientRect() ?? null;
 
-    // Disc area grows linearly with mass, capped at maxCoverage of the
-    // viewport area: πR² = coverage·W·H at mass 1.
+    // The AFFECTED area is what maxCoverage governs; the black disc itself
+    // is a scaled-down core of it.
     const maxR = Math.sqrt(
       (this.settings.maxCoverage * window.innerWidth * window.innerHeight) /
         Math.PI,
     );
-    const discR = maxR * Math.sqrt(m);
+    const discR = maxR * Math.sqrt(m) * DISC_SCALE;
     const { x, y } = this.motion.position(now, colRect, discR);
     const alpha = Math.min(1, m / FADE_MASS);
 
