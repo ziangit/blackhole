@@ -1,5 +1,37 @@
 # Security & privacy audit — event-horizon 1.0.0
 
+## Re-audit 2026-06-12 (post: GLSL overlay, all-web scope, popup, presence gate)
+
+All §1–§7 checks re-run against the current tree — results unchanged
+(commands below re-verified: zero network/dynamic-code/innerHTML across
+src and all four built bundles incl. popup.js; npm audit 0 vulns; soak
+PASS, see bottom). New surfaces since the 1.0.0 audit, reviewed:
+
+- **Input listeners on every site** (presence gate): `keydown`,
+  `pointerdown`, `pointermove`, `scroll`. This pattern-matches a
+  keylogger, so be explicit: the keydown handler takes NO event argument
+  — it cannot read which key was pressed, only that one was. pointermove
+  retains a single last (x,y) pair in a local variable to accumulate
+  travel distance; nothing is stored, logged, or transmitted. Verify:
+  `grep -n "e.key\|key ===" src/heartbeat.ts` → no matches (the only
+  key-identity read in the codebase is the spike panel's Ctrl+Shift+B
+  shortcut in spike.ts).
+- **Toolbar popup**: reads/writes `chrome.storage.local` only
+  (settings + the mass state for reset). No content access, no network.
+- **WebGL overlay**: renders only procedurally generated content
+  (starfield/disc); never samples page pixels (the platform forbids it —
+  see ARCHITECTURE "GLSL strategy"). No new privacy surface.
+- **Resource/heat posture** (user-reported warm laptop): at rest (below
+  grace / hole reset / tab hidden) the extension does no per-frame work —
+  soak-asserted. While the hole is VISIBLE the real costs are the GL
+  fragment shader + the 3-pass SVG filter, both capped at 30 fps ambient;
+  GL backing resolution is additionally capped at dpr 1.5 (fragments
+  scale with dpr², so this halves Retina GPU load). With all-web scope,
+  each visible window past grace renders independently — N visible
+  windows ≈ N× GPU. Self-check for the user: Chrome Task Manager (⋮ →
+  More tools) with the hole visible vs. after popup → Reset; the GPU
+  process delta is the extension's rendering bill.
+
 Audited 2026-06-12 ahead of Chrome Web Store submission. Every claim below
 has a reproduction command; re-run them after any change that touches the
 listed files. The automated subset runs in `npm test`

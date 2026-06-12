@@ -15,6 +15,13 @@
 import { diagDec, diagInc } from "./diag";
 import { HoleOverlay, type OverlayLike } from "./overlay";
 
+// Fragment count scales with dpr² — full Retina (dpr 2) costs 4× dpr 1.
+// The hole is glow, starfield and soft gradients; it doesn't need device
+// pixels. Capping the GL backing store is the single biggest lever on GPU
+// heat (user-reported warm laptop); the compositor upscales the canvas.
+// The crisp photon ring softens slightly at the cap — acceptable.
+const GL_MAX_DPR = 1.5;
+
 const VERT = `
 attribute vec2 a_pos;
 void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
@@ -205,7 +212,7 @@ class GlHoleOverlay implements OverlayLike {
   resize(): void {
     this.w = window.innerWidth;
     this.h = window.innerHeight;
-    this.dpr = window.devicePixelRatio || 1;
+    this.dpr = Math.min(window.devicePixelRatio || 1, GL_MAX_DPR);
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
     // Replaced element: pin the CSS box or it renders at intrinsic size
