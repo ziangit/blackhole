@@ -4,13 +4,15 @@
 // - tab hidden → rAF stops, zero work
 // - mass ~0 and nothing to fade out → rAF stops until storage changes
 // - prefers-reduced-motion → no rAF loop at all; static render on changes
-// - fade in from nothing below mass 0.05
-// Also the single source of the hole's position: renderers (Milestone 3)
-// read currentHole() so disc and distortion agree to the pixel.
+// - modal/composer open → display mass eases to 0 (lensing a half-typed
+//   reply is hostile); tracking is unaffected
+// The single source of the hole's position: the RenderManager gets the same
+// Hole the overlay just drew, so disc and distortion agree to the pixel.
 
 import { HoleMotion } from "./hole-motion";
 import type { HoleState } from "./mass";
 import { HoleOverlay } from "./overlay";
+import type { RenderManager } from "./render-manager";
 import type { Hole } from "./renderer";
 import { DEFAULT_SETTINGS, loadSettings, type Settings } from "./settings";
 
@@ -18,6 +20,8 @@ const FADE_MASS = 0.05;
 const MASS_TAU_MS = 700; // eased mass time constant — never pops
 const INFLUENCE_FACTOR = 2.2; // lens influence radius vs disc radius
 const COLUMN_REACQUIRE_MS = 1000;
+const MODAL_CHECK_MS = 300; // DOM query for open dialogs, throttled
+const REDUCED_POLL_MS = 600; // reduced motion has no rAF to notice modals with
 
 import { acquireColumn } from "./timeline";
 
@@ -33,9 +37,14 @@ export class HoleController {
   private column: HTMLElement | null = null;
   private columnCheckedAt = 0;
   private hole: Hole = { x: 0, y: 0, radius: 0, mass: 0 };
+  private modalOpen = false;
+  private modalCheckedAt = 0;
+
+  constructor(private renderManager: RenderManager | null = null) {}
 
   async start(): Promise<void> {
     this.settings = await loadSettings();
+    this.renderManager?.setMode(this.settings.renderMode);
     const { state } = await chrome.storage.local.get("state");
     this.targetMass = (state as HoleState | undefined)?.mass ?? 0;
 
@@ -46,6 +55,7 @@ export class HoleController {
           ...DEFAULT_SETTINGS,
           ...changes["settings"].newValue,
         };
+        this.renderManager?.setMode(this.settings.renderMode);
       }
       if (changes["state"]?.newValue) {
         this.targetMass =
@@ -62,6 +72,19 @@ export class HoleController {
       this.overlay.resize();
       this.wake();
     });
+
+    // Reduced motion renders only on changes — poll so an opening/closing
+    // modal still suspends/restores the static hole.
+    if (this.motion.reduced) {
+      window.setInterval(() => {
+        if (document.visibilityState === "hidden") return;
+        const open = this.queryModal();
+        if (open !== this.modalOpen) {
+          this.modalOpen = open;
+          this.wake();
+        }
+      }, REDUCED_POLL_MS);
+    }
 
     this.wake();
   }
@@ -85,8 +108,8 @@ export class HoleController {
   private wake(): void {
     if (document.visibilityState === "hidden") return;
     if (this.motion.reduced) {
-      // No animation at all: snap mass and paint a single static frame.
-      this.easedMass = this.effectiveTarget();
+      // No animation at all: a single static frame (renderFrame snaps the
+      // mass itself).
       this.renderFrame(performance.now(), 0);
       return;
     }
@@ -94,10 +117,17 @@ export class HoleController {
     this.lastFrameAt = performance.now();
     const tick = (now: number) => {
       this.raf = requestAnimationFrame(tick);
-      const dt = Math.min(now - this.lastFrameAt, 100);
+      const rawDt = now - this.lastFrameAt;
+      const dt = Math.min(rawDt, 100);
       this.lastFrameAt = now;
+      const t0 = performance.now();
       this.renderFrame(now, dt);
-      // Idle: fully starved and nothing left to fade out.
+      // Feed the perf degrade ladder: our scripting cost + the raw rAF
+      // delta (the SVG filter's raster cost only shows up as missed vsync).
+      this.renderManager?.recordFrame(performance.now() - t0, rawDt);
+      // Idle: fully starved and nothing left to fade out. (A modal with
+      // real mass behind it keeps the loop alive — effectiveTarget stays
+      // high while the displayed mass eases to 0 — so we notice the close.)
       if (this.effectiveTarget() <= 0.0005 && this.easedMass <= 0.0005) {
         this.stop();
       }
@@ -111,8 +141,19 @@ export class HoleController {
     this.overlay.clear();
   }
 
+  private queryModal(): boolean {
+    return document.querySelector('[aria-modal="true"]') !== null;
+  }
+
   private renderFrame(now: number, dt: number): void {
-    const target = this.effectiveTarget();
+    if (now - this.modalCheckedAt > MODAL_CHECK_MS) {
+      this.modalOpen = this.queryModal();
+      this.modalCheckedAt = now;
+    }
+    const target = this.modalOpen ? 0 : this.effectiveTarget();
+    if (this.motion.reduced) {
+      this.easedMass = target; // no animation at all — snap, don't ease
+    }
     if (dt > 0) {
       this.easedMass += (target - this.easedMass) * (1 - Math.exp(-dt / MASS_TAU_MS));
       if (Math.abs(target - this.easedMass) < 0.0005) this.easedMass = target;
@@ -142,5 +183,6 @@ export class HoleController {
       mass: m,
     };
     this.overlay.draw(x, y, discR, m, alpha);
+    this.renderManager?.frame(this.hole);
   }
 }

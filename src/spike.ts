@@ -1,7 +1,13 @@
-// Debug/tuning harness (Milestone 0 spike, kept until Milestone 3 wires
-// renderMode to settings). Ships disabled: only activates with ?bhspike in
-// the URL or Ctrl+Shift+B. Cycle render strategies:
-//   off → lens-data → lens-packaged → spaghetti
+// Debug/tuning harness (born as the Milestone 0 spike; since Milestone 3 it
+// is the test rig for the real render pipeline). Ships disabled: only
+// activates with ?bhspike in the URL or Ctrl+Shift+B.
+//
+// Strategies cycle: off → lens-data → lens-packaged → spaghetti →
+// overlay-only. "off" releases the RenderManager back to the renderMode
+// setting; the others pin it (which also disables the perf degrade ladder,
+// so a tuning session isn't yanked away mid-look). The manager is driven by
+// the controller's rAF — the spike owns no renderers and no loop of its own.
+//
 // The panel includes a mass-override slider (0..1) that bypasses the
 // tracker via HoleController.setMassOverride — tune disc/ring/glow/drift at
 // any size without scrolling for 20 minutes.
@@ -10,20 +16,25 @@
 
 import { displacementDataURL } from "./displacement";
 import type { HoleController } from "./hole-controller";
-import { createRenderer, svgEl, type LensRenderer } from "./renderer";
+import type { RenderManager } from "./render-manager";
+import { svgEl } from "./renderer";
 
-type Strategy = "off" | "lens-data" | "lens-packaged" | "spaghetti";
-const ORDER: Strategy[] = ["off", "lens-data", "lens-packaged", "spaghetti"];
+type Strategy = "off" | "lens-data" | "lens-packaged" | "spaghetti" | "overlay-only";
+const ORDER: Strategy[] = [
+  "off",
+  "lens-data",
+  "lens-packaged",
+  "spaghetti",
+  "overlay-only",
+];
 
 const TAG = "[event-horizon spike]";
 const PROBE_MASS = 0.7;
 
 interface State {
   strategy: Strategy;
-  renderer: LensRenderer | null;
   panel: HTMLDivElement | null;
   statusEl: HTMLPreElement | null;
-  raf: number;
   cspViolations: number;
   lastViolation: string;
   probeResult: string;
@@ -32,10 +43,8 @@ interface State {
 
 const state: State = {
   strategy: "off",
-  renderer: null,
   panel: null,
   statusEl: null,
-  raf: 0,
   cspViolations: 0,
   lastViolation: "",
   probeResult: "—",
@@ -43,9 +52,14 @@ const state: State = {
 };
 
 let controller: HoleController;
+let manager: RenderManager;
 
-export function initSpike(holeController: HoleController): void {
+export function initSpike(
+  holeController: HoleController,
+  renderManager: RenderManager,
+): void {
   controller = holeController;
+  manager = renderManager;
 
   document.addEventListener("securitypolicyviolation", (e) => {
     state.cspViolations++;
@@ -71,37 +85,26 @@ export function initSpike(holeController: HoleController): void {
 }
 
 function setStrategy(s: Strategy): void {
-  state.renderer?.dispose();
-  state.renderer = null;
-  cancelAnimationFrame(state.raf);
-  state.raf = 0;
   state.probeToken++; // invalidate any in-flight probe
   state.strategy = s;
   state.probeResult = "—";
   console.info(`${TAG} strategy → ${s}`);
-  if (s === "lens-data") {
-    state.renderer = createRenderer("lens", "data");
+  if (s === "off") {
+    manager.force(null);
+  } else if (s === "lens-data") {
+    manager.force("lens");
     void runProbe(displacementDataURL(PROBE_MASS));
   } else if (s === "lens-packaged") {
-    state.renderer = createRenderer("lens", "packaged");
+    manager.force("lens-packaged");
     void runProbe(chrome.runtime.getURL("assets/displacement.png"));
   } else if (s === "spaghetti") {
-    state.renderer = createRenderer("spaghetti");
+    manager.force("spaghetti");
     state.probeResult = "n/a (no SVG filter — CSP-proof)";
+  } else {
+    manager.force("off");
+    state.probeResult = "n/a (overlay only)";
   }
-  if (state.renderer) startLoop();
   updatePanel();
-}
-
-// The hole (position, radius, mass — viewport coords) comes from the
-// controller, so disc and distortion always agree. The override slider
-// changes the controller's mass; this loop just feeds the renderer.
-function startLoop(): void {
-  const tick = () => {
-    state.raf = requestAnimationFrame(tick);
-    state.renderer?.frame(controller.currentHole());
-  };
-  tick();
 }
 
 // Automated check: apply a probe filter (same feImage source) to a small
@@ -253,6 +256,8 @@ function ensurePanel(): void {
 
   document.documentElement.append(p);
   state.panel = p;
+  // Live view of the manager (degrades happen on their own schedule).
+  window.setInterval(updatePanel, 1000);
   updatePanel();
 }
 
@@ -261,6 +266,7 @@ function updatePanel(): void {
   state.statusEl.textContent = [
     `event-horizon spike`,
     `strategy : ${state.strategy}`,
+    `live     : ${manager.status()}`,
     `probe    : ${state.probeResult}`,
     `CSP hits : ${state.cspViolations}${state.lastViolation ? ` (${state.lastViolation})` : ""}`,
     `Ctrl+Shift+B to cycle`,

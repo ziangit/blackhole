@@ -1,4 +1,4 @@
-# Manual test script — Milestones 1 & 2
+# Manual test script — Milestones 1, 2 & 3
 
 Setup: `chrome://extensions` → reload **event-horizon** (or Load unpacked → `dist/`).
 Open the extension options page (Details → Extension options) in one window — its
@@ -49,6 +49,33 @@ for everything below.
     back on — resumes.
 16. Confirm there is no reset button anywhere; closing the X tab(s) and waiting
     is the only way to starve it.
+
+## 7. Lensing integration (M3)
+17. Open `https://x.com/home?bhspike`, tick the override, set mass ~0.5. With
+    render mode `auto`/`lens` (the default): tweets visibly BEND around the
+    photon ring — real content displaced, not just a disc on top. Scroll: the
+    warp stays pixel-locked to the disc (no lag/swim during fast flicks).
+18. Spike panel `live :` line should read `lens [auto]`. Ctrl+Shift+B to
+    `spaghetti`: whole tweets get sucked toward the hole (translate + rotate +
+    shrink + blur), no SVG filter. Cycle to `overlay-only`: feed back to
+    normal, disc remains. Cycle to `off`: releases back to the options
+    setting.
+19. Options → Render mode `spaghetti` (no spike pin): same as 18 but driven
+    by settings; switch back to `auto` — lens returns within a second.
+20. Clicks/links/scrolling must work normally in every mode, including
+    directly through the warped region. Tweet text is never hidden or edited.
+21. Navigate Home → a profile → back (SPA nav, no reload): effect re-attaches
+    to the new timeline within ~1 s, no console errors, no stuck transforms
+    on the old page's tweets.
+22. Modal suspension: with the hole visible, open the composer (or click a
+    photo). The hole + warp ease out within ~2 s — a half-typed reply is
+    never lensed. Close it: the hole eases back. Mass keeps accruing while
+    the modal is open (check the options status line).
+23. Perf degrade (best-effort): DevTools → Performance → CPU 6× slowdown,
+    mass high, scroll hard for ~10 s. Expect at most ONE
+    `[event-horizon] perf degrade: lens → spaghetti …` info log and the live
+    line flipping to `spaghetti [auto, degraded]` (then possibly
+    overlay-only). Changing Render mode in options resets the degradation.
 
 Throughout: the console must stay free of `[event-horizon]` errors (spike panel
 and its logs appear only with `?bhspike` / Ctrl+Shift+B).

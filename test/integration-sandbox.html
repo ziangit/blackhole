@@ -1,0 +1,119 @@
+<!doctype html>
+<!-- Milestone 3 integration check: the REAL HoleController + RenderManager
+     + renderers against a fake X timeline (main[role=main] >
+     [data-testid=primaryColumn] > article). NOT shipped.
+     Query params:
+       ?m=0.7              mass override (default 0.7)
+       ?mode=lens          renderMode: lens | spaghetti | off (off = overlay-only)
+       ?modal=1            insert an aria-modal dialog (hole must fade out)
+       ?stall=1            hold the load event open (img → blackhole IP) so
+                           headless --timeout decides the capture moment;
+                           rAF needs REAL time — virtual-time budgets freeze
+                           rAF timestamps and the eased mass never moves
+     Headless quirk notes apply (see ARCHITECTURE.md): screenshot with
+     - -virtual-time-budget so the rAF loop actually runs. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; background: #000; font: 15px/1.4 -apple-system, sans-serif; }
+  main { display: block; width: 600px; margin: 0 auto; background: #15202b; }
+  article { display: block; border-bottom: 1px solid #38444d; padding: 12px 16px; color: #e7e9ea; }
+  article b { color: #1d9bf0; }
+  .modal { position: fixed; inset: 20% 25%; background: #1d2733; border: 1px solid #38444d;
+           border-radius: 12px; color: #e7e9ea; padding: 20px; z-index: 100; }
+</style>
+</head>
+<body>
+<main role="main"><div data-testid="primaryColumn" id="col"></div></main>
+<script>
+  // Minimal chrome.* mock — enough for HoleController.start().
+  window.chrome = {
+    storage: {
+      local: { get: async () => ({}) },
+      onChanged: { addListener: () => {} },
+    },
+    runtime: { getURL: (p) => p },
+  };
+</script>
+<script src="./.integration.bundle.js"></script>
+<script>
+  const col = document.getElementById("col");
+  for (let i = 0; i < 14; i++) {
+    const t = document.createElement("article");
+    t.innerHTML = `<b>@user${i}</b> · tweet number ${i} — the quick brown fox jumps over the lazy dog, again and again.`;
+    col.appendChild(t);
+  }
+
+  const params = new URLSearchParams(location.search);
+  const m = Number(params.get("m") ?? 0.7);
+  const mode = params.get("mode") ?? "lens";
+
+  // Synthetic per-frame jank: rAF callbacks burning N ms each frame. The
+  // controller's degrade ladder must walk lens → spaghetti → overlay-only.
+  const slow = Number(params.get("slow") ?? 0);
+  if (slow > 0) {
+    const burn = () => {
+      const until = performance.now() + slow;
+      while (performance.now() < until) {} // busy-wait
+      requestAnimationFrame(burn);
+    };
+    requestAnimationFrame(burn);
+  }
+
+  if (params.get("stall")) {
+    const img = document.createElement("img");
+    img.src = "http://192.0.2.1/never-loads.png"; // TEST-NET-1: connect hangs
+    img.style.cssText = "width:0;height:0;";
+    document.body.appendChild(img);
+  }
+
+  // start() applies settings.renderMode from storage — serve the requested
+  // mode from the mock rather than racing it with a manual setMode.
+  chrome.storage.local.get = async () => ({
+    settings: { renderMode: mode === "off" ? "auto" : mode },
+  });
+
+  const manager = new EH.RenderManager();
+  if (mode === "off") manager.force("off");
+  const controller = new EH.HoleController(manager);
+
+  // Pipeline state, readable from the screenshot pixels (--dump-dom does
+  // not advance rAF, so the DOM route can't observe this pipeline).
+  const dbg = document.createElement("pre");
+  dbg.id = "dbg";
+  dbg.style.cssText =
+    "position:fixed;top:4px;left:4px;z-index:2147483647;margin:0;" +
+    "background:#000;color:#0f0;font:bold 26px/1.4 monospace;padding:8px;";
+  document.body.appendChild(dbg);
+  setInterval(() => {
+    const arts = [...document.querySelectorAll("article")];
+    const lines = [
+      `mass        ${controller.currentHole().mass.toFixed(3)}`,
+      `modal       ${!!document.querySelector('[aria-modal="true"]')}`,
+      `filter      ${col.style.filter || "(none)"}`,
+      `transformed ${arts.filter((a) => a.style.transform).length}`,
+      `manager     ${manager.status()}`,
+    ];
+    dbg.textContent = lines.join("\n");
+    // Timeline on stderr via --enable-logging=stderr.
+    console.log(`[sandbox t=${performance.now().toFixed(0)}] ${lines.join(" | ")}`);
+  }, 250);
+
+  controller.start().then(() => {
+    controller.setMassOverride(m);
+    if (params.get("modal")) {
+      // Give the pipeline a moment at full mass, then open a "composer".
+      setTimeout(() => {
+        const d = document.createElement("div");
+        d.className = "modal";
+        d.setAttribute("aria-modal", "true");
+        d.setAttribute("role", "dialog");
+        d.textContent = "Half-typed reply — must never be lensed.";
+        document.body.appendChild(d);
+      }, 500);
+    }
+  });
+</script>
+</body>
+</html>

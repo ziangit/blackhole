@@ -3,3 +3,4 @@ dist/
 test/shot-*.png
 test/.mass.bundle.mjs
 test/.overlay.bundle.js
+test/.integration.bundle.js

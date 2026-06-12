@@ -1,5 +1,6 @@
 import { initHeartbeat } from "./heartbeat";
 import { HoleController } from "./hole-controller";
+import { RenderManager } from "./render-manager";
 import { initSpike } from "./spike";
 
 // Whatever happens, never break x.com.
@@ -10,14 +11,15 @@ try {
 }
 
 try {
-  const controller = new HoleController();
+  const manager = new RenderManager();
+  const controller = new HoleController(manager);
   void controller.start().then(() => {
     try {
-      initSpike(controller);
+      initSpike(controller, manager);
     } catch (e) {
       console.warn("[event-horizon] spike init failed", e);
     }
   });
 } catch (e) {
-  console.warn("[event-horizon] overlay init failed", e);
+  console.warn("[event-horizon] hole init failed", e);
 }

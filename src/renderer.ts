@@ -198,20 +198,71 @@ const OFFSCREEN_MARGIN = 200;
 
 export class SpaghettiRenderer implements LensRenderer {
   private saved = new Map<HTMLElement, string>();
+  // Per the spec: only touch articles intersecting an expanded viewport
+  // rect, tracked by IntersectionObserver — the per-frame loop never walks
+  // the whole column. A MutationObserver feeds newly virtualized-in
+  // articles to the IO; removed nodes fall out via the isConnected check.
+  private visible = new Set<HTMLElement>();
+  private io: IntersectionObserver;
+  private mo: MutationObserver;
+  private column: HTMLElement | null = null;
+
+  constructor() {
+    this.io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const el = entry.target as HTMLElement;
+          if (entry.isIntersecting) {
+            this.visible.add(el);
+          } else {
+            this.visible.delete(el);
+            this.restore(el);
+          }
+        }
+      },
+      { rootMargin: `${OFFSCREEN_MARGIN}px` },
+    );
+    this.mo = new MutationObserver((muts) => {
+      for (const mut of muts) {
+        for (const node of mut.addedNodes) {
+          if (!(node instanceof HTMLElement)) continue;
+          if (node.tagName === "ARTICLE") this.io.observe(node);
+          for (const a of node.querySelectorAll<HTMLElement>("article")) {
+            this.io.observe(a);
+          }
+        }
+      }
+    });
+  }
+
+  // Re-arm both observers whenever X's SPA replaces the column.
+  private ensureColumn(): boolean {
+    if (this.column?.isConnected) return true;
+    const col = acquireColumn();
+    this.column = col;
+    if (!col) return false;
+    this.io.disconnect();
+    this.mo.disconnect();
+    this.visible.clear();
+    // Styles saved against the old column would otherwise leak forever.
+    for (const el of [...this.saved.keys()]) this.restore(el);
+    for (const a of col.querySelectorAll<HTMLElement>("article")) {
+      this.io.observe(a);
+    }
+    this.mo.observe(col, { childList: true, subtree: true });
+    return true;
+  }
 
   frame(hole: Hole): void {
-    const column = acquireColumn();
-    if (!column) return;
-    const seen = new Set<HTMLElement>();
-    for (const article of column.querySelectorAll<HTMLElement>("article")) {
-      seen.add(article);
-      const r = article.getBoundingClientRect();
-      if (
-        r.bottom < -OFFSCREEN_MARGIN ||
-        r.top > window.innerHeight + OFFSCREEN_MARGIN
-      ) {
+    if (!this.ensureColumn()) return;
+    for (const article of this.visible) {
+      if (!article.isConnected) {
+        // Virtualized out entirely — our styles went with the node.
+        this.visible.delete(article);
+        this.saved.delete(article);
         continue;
       }
+      const r = article.getBoundingClientRect();
       const ex = r.left + r.width / 2;
       const ey = r.top + r.height / 2;
       const d = Math.hypot(ex - hole.x, ey - hole.y);
@@ -232,12 +283,6 @@ export class SpaghettiRenderer implements LensRenderer {
       article.style.filter = `blur(${(SPAGHETTI_BLUR_PX * e).toFixed(1)}px)`;
       article.style.transition = "none";
     }
-    // Virtualization-safe restore: anything we styled that left the query
-    // gets its styles back (nodes X removed entirely take our styles with
-    // them).
-    for (const el of this.saved.keys()) {
-      if (!seen.has(el)) this.restore(el);
-    }
   }
 
   private restore(el: HTMLElement): void {
@@ -248,13 +293,9 @@ export class SpaghettiRenderer implements LensRenderer {
   }
 
   dispose(): void {
-    for (const el of this.saved.keys()) this.restore(el);
+    this.io.disconnect();
+    this.mo.disconnect();
+    this.visible.clear();
+    for (const el of [...this.saved.keys()]) this.restore(el);
   }
-}
-
-export function createRenderer(
-  mode: "lens" | "spaghetti",
-  source: MapSource = "data",
-): LensRenderer {
-  return mode === "lens" ? new FilterLensRenderer(source) : new SpaghettiRenderer();
 }
