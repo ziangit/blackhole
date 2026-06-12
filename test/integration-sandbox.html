@@ -33,7 +33,7 @@
       local: { get: async () => ({}) },
       onChanged: { addListener: () => {} },
     },
-    runtime: { getURL: (p) => p },
+    runtime: { id: "sandbox", getURL: (p) => p },
   };
 </script>
 <script src="./.integration.bundle.js"></script>

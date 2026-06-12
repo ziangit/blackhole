@@ -1,8 +1,17 @@
 import esbuild from "esbuild";
+import { execSync } from "node:child_process";
 import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { generateDisplacementPNG } from "./tools/gen-displacement.mjs";
 
 const watch = process.argv.includes("--watch");
+
+// Build tag shown in the spike panel + logged at injection — ends the
+// "which build is this tab actually running?" guessing game.
+let sha = "nogit";
+try {
+  sha = execSync("git rev-parse --short HEAD").toString().trim();
+} catch {}
+const buildTag = `${sha} ${new Date().toISOString().slice(0, 16)}Z`;
 
 mkdirSync("dist/assets", { recursive: true });
 writeFileSync("dist/assets/displacement.png", generateDisplacementPNG(256, 0.7));
@@ -16,6 +25,7 @@ const ctx = await esbuild.context({
   format: "iife",
   target: "chrome120",
   logLevel: "info",
+  define: { __EH_BUILD__: JSON.stringify(buildTag) },
 });
 
 if (watch) {

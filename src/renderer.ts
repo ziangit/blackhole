@@ -138,7 +138,11 @@ export class FilterLensRenderer implements LensRenderer {
       const col = acquireColumn();
       if (!col) return;
       if (this.column) this.column.style.filter = this.savedFilter;
-      this.savedFilter = col.style.filter;
+      // Never "save" a leftover reference to our own filter (e.g. from an
+      // orphaned predecessor script) — restoring it later would re-break.
+      this.savedFilter = col.style.filter.includes(FILTER_ID)
+        ? ""
+        : col.style.filter;
       this.column = col;
     }
     const col = this.column;

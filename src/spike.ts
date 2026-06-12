@@ -256,15 +256,28 @@ function ensurePanel(): void {
 
   document.documentElement.append(p);
   state.panel = p;
-  // Live view of the manager (degrades happen on their own schedule).
-  window.setInterval(updatePanel, 1000);
+  // Live view of the manager (degrades happen on their own schedule); also
+  // the orphan check — a reloaded extension must not leave a zombie panel.
+  const interval = window.setInterval(() => {
+    let orphaned = true;
+    try {
+      orphaned = !chrome.runtime?.id;
+    } catch {}
+    if (orphaned) {
+      window.clearInterval(interval);
+      state.panel?.remove();
+      state.panel = null;
+      return;
+    }
+    updatePanel();
+  }, 1000);
   updatePanel();
 }
 
 function updatePanel(): void {
   if (!state.statusEl) return;
   state.statusEl.textContent = [
-    `event-horizon spike`,
+    `event-horizon ${__EH_BUILD__}`,
     `strategy : ${state.strategy}`,
     `live     : ${manager.status()}`,
     `probe    : ${state.probeResult}`,

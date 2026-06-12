@@ -10,6 +10,9 @@
 // nothing to warp ("it disappeared"). A hard clamp keeps ≥ ~80% of the
 // disc on screen — "can't find it" is worse than "not annoying enough".
 // Respects prefers-reduced-motion: static center over the feed, no drift.
+//
+// (The clamp now keeps the disc FULLY visible: after the second "it went
+// off-screen" report, any off-screen lean loses more than it gains.)
 
 export class HoleMotion {
   readonly reduced = window.matchMedia(
@@ -26,8 +29,8 @@ export class HoleMotion {
     const cx = columnRect ? columnRect.left + columnRect.width / 2 : w / 2;
     if (this.reduced) return { x: cx, y: h / 2 };
     const t = nowMs / 1000;
-    const mx = Math.min(discRadius * 0.8 + 20, w / 2);
-    const my = Math.min(discRadius * 0.8 + 20, h / 2);
+    const mx = Math.min(discRadius + 12, w / 2);
+    const my = Math.min(discRadius + 12, h / 2);
     const ax = columnRect ? columnRect.width * 0.6 : w * 0.25;
     const ay = Math.max(0, h / 2 - my);
     const wx =

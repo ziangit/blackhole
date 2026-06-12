@@ -39,8 +39,33 @@ export class HoleController {
   private hole: Hole = { x: 0, y: 0, radius: 0, mass: 0 };
   private modalOpen = false;
   private modalCheckedAt = 0;
+  private orphanCheckedAt = 0;
+  private reducedPoll = 0;
+  private dead = false;
 
   constructor(private renderManager: RenderManager | null = null) {}
+
+  // When the extension is reloaded/updated/removed, this script lives on in
+  // the tab as an orphan: chrome.* is gone but rAF and DOM access still
+  // work — it would keep drawing a stale hole forever, fighting the freshly
+  // injected script. Detect it (chrome.runtime.id disappears) and tear
+  // everything down, leaving x.com untouched.
+  private isOrphaned(): boolean {
+    try {
+      return !chrome.runtime?.id;
+    } catch {
+      return true;
+    }
+  }
+
+  private destroy(): void {
+    this.dead = true;
+    this.stop();
+    window.clearInterval(this.reducedPoll);
+    this.renderManager?.suspend();
+    this.overlay.dispose();
+    console.info("[event-horizon] orphaned content script cleaned itself up");
+  }
 
   async start(): Promise<void> {
     this.settings = await loadSettings();
@@ -76,7 +101,11 @@ export class HoleController {
     // Reduced motion renders only on changes — poll so an opening/closing
     // modal still suspends/restores the static hole.
     if (this.motion.reduced) {
-      window.setInterval(() => {
+      this.reducedPoll = window.setInterval(() => {
+        if (this.isOrphaned()) {
+          this.destroy();
+          return;
+        }
         if (document.visibilityState === "hidden") return;
         const open = this.queryModal();
         if (open !== this.modalOpen) {
@@ -106,6 +135,7 @@ export class HoleController {
   }
 
   private wake(): void {
+    if (this.dead) return;
     if (document.visibilityState === "hidden") return;
     if (this.motion.reduced) {
       // No animation at all: a single static frame (renderFrame snaps the
@@ -117,6 +147,13 @@ export class HoleController {
     this.lastFrameAt = performance.now();
     const tick = (now: number) => {
       this.raf = requestAnimationFrame(tick);
+      if (now - this.orphanCheckedAt > 2000) {
+        this.orphanCheckedAt = now;
+        if (this.isOrphaned()) {
+          this.destroy();
+          return;
+        }
+      }
       const rawDt = now - this.lastFrameAt;
       const dt = Math.min(rawDt, 100);
       this.lastFrameAt = now;

@@ -33,7 +33,7 @@ export function initHeartbeat(): void {
     { passive: true },
   );
 
-  window.setInterval(() => {
+  const interval = window.setInterval(() => {
     if (
       !enabled ||
       document.visibilityState !== "visible" ||
@@ -49,7 +49,8 @@ export function initHeartbeat(): void {
         .sendMessage({ type: "eh-heartbeat", scrollDelta })
         .catch(() => {});
     } catch {
-      // extension was reloaded; this content script is orphaned
+      // extension was reloaded; this content script is orphaned — stop.
+      window.clearInterval(interval);
     }
   }, HEARTBEAT_MS);
 }
