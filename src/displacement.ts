@@ -1,4 +1,6 @@
 // Displacement-map generation for the feDisplacementMap lens.
+// Baked ONCE at reference mass (renderer.ts MAP_REFERENCE_MASS); live warp
+// intensity rides the feDisplacementMap scale attribute, mass^WARP_GAMMA.
 // Deflection vectors encoded in R/G around the 128 neutral point;
 // magnitude ∝ mass / max(r, eventRadius)². The vector is radial pull plus a
 // tangential SWIRL component — pure inward pull reads as "suction", the

@@ -14,7 +14,9 @@ try {
 const buildTag = `${sha} ${new Date().toISOString().slice(0, 16)}Z`;
 
 mkdirSync("dist/assets", { recursive: true });
-writeFileSync("dist/assets/displacement.png", generateDisplacementPNG(256, 0.7));
+// Reference-mass map: intensity is driven by the filter's scale attribute,
+// never by re-baking the map (see src/renderer.ts WARP_GAMMA).
+writeFileSync("dist/assets/displacement.png", generateDisplacementPNG(256, 1));
 cpSync("manifest.json", "dist/manifest.json");
 cpSync("src/options.html", "dist/options.html");
 

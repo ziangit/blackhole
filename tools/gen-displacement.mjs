@@ -48,7 +48,7 @@ function encodePNG(width, height, rgba) {
 // tangential swirl, magnitude ∝ mass / max(r, eventR)², vectors encoded in
 // R/G around 128, edges faded to neutral so the map never shifts content
 // outside the hole's influence.
-export function generateDisplacementPNG(size = 256, mass = 0.7) {
+export function generateDisplacementPNG(size = 256, mass = 1) {
   const EVENT_R = 0.15;
   const STRENGTH = 0.085;
   const SWIRL = 0.8;

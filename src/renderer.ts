@@ -36,8 +36,15 @@ export type MapSource = "data" | "packaged";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const FILTER_ID = "event-horizon-lens";
 const MAX_SCALE = 150; // feDisplacementMap scale at mass 1 (max shift = scale/2)
-const MAP_REGEN_MIN_MS = 100; // ≤ 10 Hz
-const MASS_TIERS = 8;
+
+// Warp intensity ∝ mass^GAMMA. Front-loaded on purpose: the effect must be
+// obvious in the first minutes (mass 0.1 → ~40% intensity), not only at the
+// endgame. The map itself is baked ONCE at reference mass 1 and intensity
+// rides the cheap per-frame `scale` attribute — regenerating the map from
+// the live mass at tier crossings made the warp history-dependent (0.5
+// approached from above baked a ~25% stronger map than from below).
+export const WARP_GAMMA = 0.4;
+const MAP_REFERENCE_MASS = 1;
 
 export function svgEl(tag: string, attrs: Record<string, string>): SVGElement {
   const el = document.createElementNS(SVG_NS, tag);
@@ -109,17 +116,18 @@ export class FilterLensRenderer implements LensRenderer {
   private lastY = Infinity;
   private lastSize = Infinity;
   private lastScale = Infinity;
-  private lastMapTier = -1;
-  private lastMapAt = -Infinity;
 
-  constructor(private source: MapSource = "data") {
+  constructor(source: MapSource = "data") {
     const { svg, feImage, disp } = buildLensFilter();
     this.svg = svg;
     this.feImage = feImage;
     this.disp = disp;
-    if (source === "packaged") {
-      this.setHref(chrome.runtime.getURL("assets/displacement.png"));
-    }
+    // Static map (reference mass) — per-frame work is attribute-only.
+    this.setHref(
+      source === "packaged"
+        ? chrome.runtime.getURL("assets/displacement.png")
+        : displacementDataURL(MAP_REFERENCE_MASS),
+    );
     document.documentElement.append(svg);
   }
 
@@ -168,22 +176,10 @@ export class FilterLensRenderer implements LensRenderer {
       this.feImage.setAttribute("height", size.toFixed(1));
       this.lastSize = size;
     }
-    const scale = MAX_SCALE * hole.mass;
+    const scale = MAX_SCALE * Math.pow(hole.mass, WARP_GAMMA);
     if (Math.abs(scale - this.lastScale) > 0.5) {
       this.disp.setAttribute("scale", scale.toFixed(1));
       this.lastScale = scale;
-    }
-
-    // Map regeneration: only on mass-tier changes and at most 10 Hz —
-    // per-frame motion is attribute updates only, never canvas work.
-    if (this.source === "data") {
-      const tier = Math.round(hole.mass * MASS_TIERS);
-      const now = performance.now();
-      if (tier !== this.lastMapTier && now - this.lastMapAt >= MAP_REGEN_MIN_MS) {
-        this.setHref(displacementDataURL(Math.max(hole.mass, 0.05)));
-        this.lastMapTier = tier;
-        this.lastMapAt = now;
-      }
     }
   }
 
@@ -278,7 +274,7 @@ export class SpaghettiRenderer implements LensRenderer {
       if (!this.saved.has(article)) {
         this.saved.set(article, article.style.cssText);
       }
-      const e = t * t * hole.mass;
+      const e = t * t * Math.pow(hole.mass, WARP_GAMMA);
       const tx = (hole.x - ex) * SPAGHETTI_PULL * e;
       const ty = (hole.y - ey) * SPAGHETTI_PULL * e;
       const rot = SPAGHETTI_ROT_DEG * e * (ey < hole.y ? -1 : 1);
