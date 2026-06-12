@@ -13,9 +13,10 @@ function evictOrphanRemnants(): void {
   for (const id of ["event-horizon-overlay", "bh-spike-panel"]) {
     document.getElementById(id)?.remove();
   }
-  for (const id of ["event-horizon-lens", "bh-spike-probe"]) {
-    document.getElementById(id)?.closest("svg")?.remove();
+  for (const f of document.querySelectorAll('filter[id^="event-horizon-lens"]')) {
+    f.closest("svg")?.remove();
   }
+  document.getElementById("bh-spike-probe")?.closest("svg")?.remove();
   const col = document.querySelector<HTMLElement>(
     '[data-testid="primaryColumn"], main[role="main"]',
   );

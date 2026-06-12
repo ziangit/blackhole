@@ -31,10 +31,11 @@ const DISC_SCALE = 0.62;
 const INFLUENCE_FACTOR = 6;
 
 // Ambient frame cap: the drifting hole invalidates the SVG filter raster
-// (3 displacement passes over the column) on every change — at 60-120 fps
-// that cooks laptops. Drift/orbit redraw at ~30 fps; scrolling and mass
-// changes bypass the cap so the warp stays pixel-locked to the page.
-const DRAW_MIN_INTERVAL_MS = 33;
+// on every change — at 60-120 fps that cooks laptops. Drift/orbit redraw
+// at ~24 fps (Task-Manager measured: tab ~29% of a core + GPU ~19% at 30
+// fps with the 3-pass filter); scrolling and mass changes bypass the cap
+// so the warp stays pixel-locked to the page.
+const DRAW_MIN_INTERVAL_MS = 42;
 const COLUMN_REACQUIRE_MS = 1000;
 const MODAL_CHECK_MS = 300; // DOM query for open dialogs, throttled
 const REDUCED_POLL_MS = 600; // reduced motion has no rAF to notice modals with

@@ -35,14 +35,23 @@ export interface LensRenderer {
 export type MapSource = "data" | "packaged";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const FILTER_ID = "event-horizon-lens";
+// Two filter variants share one <svg>: a cheap single-pass displacement
+// and the full 3-pass chromatic split. Both ids carry this prefix — the
+// orphan eviction and saved-filter guards match on it.
+const FILTER_ID_PREFIX = "event-horizon-lens";
+const FILTER_ID_LO = `${FILTER_ID_PREFIX}-lo`;
+const FILTER_ID_HI = `${FILTER_ID_PREFIX}-hi`;
 const MAX_SCALE = 430; // feDisplacementMap scale at mass 1 (max shift = scale/2)
 
 // Chromatic aberration: the page is split into R/G/B and each channel is
 // displaced at a slightly different strength, then recombined additively —
 // lensed content gets the rainbow fringing of the reference shader. Three
-// displacement passes ≈ 3× filter raster cost; the degrade ladder is the
-// safety net on slow machines.
+// displacement passes ≈ 3× filter raster cost (measured: ~29% of a core
+// on the active tab), so the chroma variant engages ONLY past
+// CHROMA_ON_MASS — at small mass the fringe offset (scale × 0.06) is
+// barely perceptible anyway. Hysteresis prevents flicker at the boundary.
+const CHROMA_ON_MASS = 0.38;
+const CHROMA_OFF_MASS = 0.3;
 const CHANNELS: { matrix: string; mul: number }[] = [
   { matrix: "1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0", mul: 1.06 },
   { matrix: "0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0", mul: 1.0 },
@@ -69,19 +78,18 @@ export function svgEl(tag: string, attrs: Record<string, string>): SVGElement {
 //   shift; fix by compositing the map over a neutral #808080 feFlood.
 // - default linearRGB color interpolation destroys the 128-neutral
 //   encoding; must be sRGB.
-function buildLensFilter(): {
-  svg: SVGSVGElement;
+interface FilterVariant {
+  id: string;
   feImage: SVGElement;
   disps: { el: SVGElement; mul: number }[];
+}
+
+function buildFilterShell(id: string): {
+  filter: SVGElement;
+  feImage: SVGElement;
 } {
-  const svg = svgEl("svg", {
-    width: "0",
-    height: "0",
-    "aria-hidden": "true",
-  }) as SVGSVGElement;
-  svg.style.cssText = "position:absolute;width:0;height:0;";
   const filter = svgEl("filter", {
-    id: FILTER_ID,
+    id,
     x: "-20%",
     y: "-20%",
     width: "140%",
@@ -107,11 +115,39 @@ function buildLensFilter(): {
     svgEl("feMergeNode", { in: "map" }),
   );
   filter.append(flood, feImage, merge);
+  return { filter, feImage };
+}
 
-  // One isolate→displace pass per color channel, then add them back up.
-  const disps: { el: SVGElement; mul: number }[] = [];
+function buildLensFilters(): { svg: SVGSVGElement; lo: FilterVariant; hi: FilterVariant } {
+  const svg = svgEl("svg", {
+    width: "0",
+    height: "0",
+    "aria-hidden": "true",
+  }) as SVGSVGElement;
+  svg.style.cssText = "position:absolute;width:0;height:0;";
+
+  // LO: one displacement pass, no channel split — 1/3 the raster cost.
+  const loShell = buildFilterShell(FILTER_ID_LO);
+  const loDisp = svgEl("feDisplacementMap", {
+    in: "SourceGraphic",
+    in2: "fullmap",
+    scale: "0",
+    xChannelSelector: "R",
+    yChannelSelector: "G",
+  });
+  loShell.filter.append(loDisp);
+  svg.append(loShell.filter);
+  const lo: FilterVariant = {
+    id: FILTER_ID_LO,
+    feImage: loShell.feImage,
+    disps: [{ el: loDisp, mul: 1 }],
+  };
+
+  // HI: one isolate→displace pass per color channel, added back up.
+  const hiShell = buildFilterShell(FILTER_ID_HI);
+  const hiDisps: { el: SVGElement; mul: number }[] = [];
   CHANNELS.forEach(({ matrix, mul }, i) => {
-    filter.append(
+    hiShell.filter.append(
       svgEl("feColorMatrix", {
         in: "SourceGraphic",
         type: "matrix",
@@ -127,10 +163,10 @@ function buildLensFilter(): {
       yChannelSelector: "G",
       result: `disp${i}`,
     });
-    filter.append(disp);
-    disps.push({ el: disp, mul });
+    hiShell.filter.append(disp);
+    hiDisps.push({ el: disp, mul });
   });
-  filter.append(
+  hiShell.filter.append(
     svgEl("feComposite", {
       in: "disp0",
       in2: "disp1",
@@ -151,14 +187,21 @@ function buildLensFilter(): {
       k4: "0",
     }),
   );
-  svg.append(filter);
-  return { svg, feImage, disps };
+  svg.append(hiShell.filter);
+  const hi: FilterVariant = {
+    id: FILTER_ID_HI,
+    feImage: hiShell.feImage,
+    disps: hiDisps,
+  };
+
+  return { svg, lo, hi };
 }
 
 export class FilterLensRenderer implements LensRenderer {
   private svg: SVGSVGElement;
-  private feImage: SVGElement;
-  private disps: { el: SVGElement; mul: number }[];
+  private lo: FilterVariant;
+  private hi: FilterVariant;
+  private chroma = false;
   private column: HTMLElement | null = null;
   private savedFilter = "";
   private lastX = Infinity;
@@ -167,68 +210,84 @@ export class FilterLensRenderer implements LensRenderer {
   private lastScale = Infinity;
 
   constructor(source: MapSource = "data") {
-    const { svg, feImage, disps } = buildLensFilter();
+    const { svg, lo, hi } = buildLensFilters();
     this.svg = svg;
-    this.feImage = feImage;
-    this.disps = disps;
+    this.lo = lo;
+    this.hi = hi;
     // Static map (reference mass) — per-frame work is attribute-only.
-    this.setHref(
+    const href =
       source === "packaged"
         ? chrome.runtime.getURL("assets/displacement.png")
-        : displacementDataURL(MAP_REFERENCE_MASS),
-    );
+        : displacementDataURL(MAP_REFERENCE_MASS);
+    for (const v of [lo, hi]) {
+      v.feImage.setAttribute("href", href);
+      v.feImage.setAttributeNS(
+        "http://www.w3.org/1999/xlink",
+        "xlink:href",
+        href,
+      );
+    }
     document.documentElement.append(svg);
     diagInc("svgFilter");
   }
 
-  private setHref(href: string): void {
-    this.feImage.setAttribute("href", href);
-    this.feImage.setAttributeNS(
-      "http://www.w3.org/1999/xlink",
-      "xlink:href",
-      href,
-    );
+  private active(): FilterVariant {
+    return this.chroma ? this.hi : this.lo;
   }
 
   frame(hole: Hole): void {
-    // Re-acquire the column whenever X's SPA tears it down.
+    // Re-acquire the column whenever the SPA tears it down.
     if (!this.column?.isConnected) {
       const col = acquireColumn();
       if (!col) return;
       if (this.column) this.column.style.filter = this.savedFilter;
       // Never "save" a leftover reference to our own filter (e.g. from an
       // orphaned predecessor script) — restoring it later would re-break.
-      this.savedFilter = col.style.filter.includes(FILTER_ID)
+      this.savedFilter = col.style.filter.includes(FILTER_ID_PREFIX)
         ? ""
         : col.style.filter;
       this.column = col;
     }
     const col = this.column;
+
+    // Cost-adaptive chroma: 3-pass only when the hole is big enough for
+    // the fringe to read; force a full attribute resync on switch.
+    const wantChroma = this.chroma
+      ? hole.mass > CHROMA_OFF_MASS
+      : hole.mass > CHROMA_ON_MASS;
+    if (wantChroma !== this.chroma) {
+      this.chroma = wantChroma;
+      this.lastX = this.lastY = this.lastSize = this.lastScale = Infinity;
+    }
+
     // X re-renders can wipe inline styles — re-assert, don't assume.
-    const url = `url(#${FILTER_ID})`;
+    const url = `url(#${this.active().id})`;
     if (col.style.filter !== url) col.style.filter = url;
 
-    // Viewport → element-local conversion, fresh every frame.
+    // Viewport → element-local conversion, fresh every frame. Only the
+    // ACTIVE variant's primitives are updated — the inactive filter is
+    // unreferenced and costs nothing.
+    const v = this.active();
     const rect = col.getBoundingClientRect();
     const x = hole.x - rect.left - hole.radius;
     const y = hole.y - rect.top - hole.radius;
     const size = hole.radius * 2;
     if (Math.abs(x - this.lastX) > 0.5) {
-      this.feImage.setAttribute("x", x.toFixed(1));
+      v.feImage.setAttribute("x", x.toFixed(1));
       this.lastX = x;
     }
     if (Math.abs(y - this.lastY) > 0.5) {
-      this.feImage.setAttribute("y", y.toFixed(1));
+      v.feImage.setAttribute("y", y.toFixed(1));
       this.lastY = y;
     }
     if (Math.abs(size - this.lastSize) > 0.5) {
-      this.feImage.setAttribute("width", size.toFixed(1));
-      this.feImage.setAttribute("height", size.toFixed(1));
+      v.feImage.setAttribute("width", size.toFixed(1));
+      v.feImage.setAttribute("height", size.toFixed(1));
       this.lastSize = size;
     }
     const scale = MAX_SCALE * Math.pow(hole.mass, WARP_GAMMA);
     if (Math.abs(scale - this.lastScale) > 0.5) {
-      for (const { el, mul } of this.disps) {
+      for (const { el, mul } of v.disps) {
         el.setAttribute("scale", (scale * mul).toFixed(1));
       }
       this.lastScale = scale;
