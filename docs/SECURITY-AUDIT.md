@@ -29,8 +29,11 @@ PASS, see bottom). New surfaces since the 1.0.0 audit, reviewed:
   scale with dpr², so this halves Retina GPU load). With all-web scope,
   each visible window past grace renders independently — N visible
   windows ≈ N× GPU. Self-check for the user: Chrome Task Manager (⋮ →
-  More tools) with the hole visible vs. after popup → Reset; the GPU
-  process delta is the extension's rendering bill.
+  More tools) — use the **All tasks** view. The "Extension:
+  event-horizon" row is only the (sleeping) service worker; content
+  scripts bill to each TAB's row and rendering bills to the **GPU
+  Process** row. A/B: note tab + GPU Process CPU → Show Black Hole Now →
+  both rise → Reset → both fall. That delta is the extension's bill.
 
 Audited 2026-06-12 ahead of Chrome Web Store submission. Every claim below
 has a reproduction command; re-run them after any change that touches the
