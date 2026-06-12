@@ -1,9 +1,14 @@
-// The hole is supposed to HINDER: it roams the whole viewport, not just the
-// feed column. Each axis sums three incommensurate sines (quasi-random
-// Lissajous wander — never visibly repeats) with periods of ~9–30 s, so it
-// crosses the screen in tens of seconds. The original two-octave drift had
-// 57–217 s periods and sat near a path extreme for a minute at a time —
-// that read as "drifted into a corner and died".
+// The hole is supposed to HINDER, which means staying where the content is:
+// horizontally it is anchored to the FEED COLUMN (overshooting its edges by
+// ~25% of its width), vertically it roams the full viewport height. Each
+// axis sums three incommensurate sines (quasi-random Lissajous wander —
+// never visibly repeats) with periods of ~9–30 s, so it sweeps the feed in
+// tens of seconds. Two earlier mistakes, kept for the record: 57–217 s
+// periods parked it near a path extreme for a minute ("drifted into a
+// corner and died"), and roaming the whole viewport sent it over the dark
+// sidebars where a black disc is invisible and the column filter has
+// nothing to warp ("it disappeared"). A hard clamp keeps ≥ ~80% of the
+// disc on screen — "can't find it" is worse than "not annoying enough".
 // Respects prefers-reduced-motion: static center over the feed, no drift.
 
 export class HoleMotion {
@@ -16,21 +21,15 @@ export class HoleMotion {
     columnRect: DOMRect | null,
     discRadius: number,
   ): { x: number; y: number } {
-    if (this.reduced) {
-      return {
-        x: columnRect
-          ? columnRect.left + columnRect.width / 2
-          : window.innerWidth / 2,
-        y: window.innerHeight / 2,
-      };
-    }
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const cx = columnRect ? columnRect.left + columnRect.width / 2 : w / 2;
+    if (this.reduced) return { x: cx, y: h / 2 };
     const t = nowMs / 1000;
-    // Amplitude reaches to within `margin` of the viewport edges — at the
-    // extremes up to ~30% of the disc may hang off-screen (annoying is the
-    // point), but most of it stays visible.
-    const margin = discRadius * 0.7 + 30;
-    const ax = Math.max(0, window.innerWidth / 2 - margin);
-    const ay = Math.max(0, window.innerHeight / 2 - margin);
+    const mx = Math.min(discRadius * 0.8 + 20, w / 2);
+    const my = Math.min(discRadius * 0.8 + 20, h / 2);
+    const ax = columnRect ? columnRect.width * 0.6 : w * 0.25;
+    const ay = Math.max(0, h / 2 - my);
     const wx =
       0.5 * Math.sin(t * 0.43) +
       0.35 * Math.sin(t * 0.211 + 1.7) +
@@ -40,8 +39,8 @@ export class HoleMotion {
       0.35 * Math.sin(t * 0.157 + 4.2) +
       0.15 * Math.sin(t * 0.071 + 2.3);
     return {
-      x: window.innerWidth / 2 + wx * ax,
-      y: window.innerHeight / 2 + wy * ay,
+      x: Math.min(Math.max(cx + wx * ax, mx), w - mx),
+      y: h / 2 + wy * ay,
     };
   }
 }

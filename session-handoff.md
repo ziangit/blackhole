@@ -1,6 +1,6 @@
 # Session handoff
 
-**Current phase:** Milestone 3 — manual pass MOSTLY GOOD (user feedback 2026-06-11), then a motion/look restyle applied from that feedback (see ARCHITECTURE.md "Motion & look restyle"): viewport-wide faster drift, displacement swirl, stronger warp, hotspot + chroma echoes on the overlay. Awaiting the user's re-check of the restyle on real x.com. Next: Milestone 4 — polish & shippability.
+**Current phase:** Milestone 3 — manual pass MOSTLY GOOD, restyle applied (swirl lensing, stronger warp, hotspot + chroma echoes, faster drift), then a motion correction after the user reported the viewport-roaming hole going off-screen/invisible: drift is now column-anchored with a ≥80%-visible clamp (see ARCHITECTURE.md "Motion & look restyle", mistake #2). Awaiting the user's re-check on real x.com. Next: Milestone 4 — polish & shippability.
 **Repo:** pushed to https://github.com/ziangit/blackhole (origin/main).
 **Next concrete step:** After manual sign-off, M4: README (privacy statement, settings table, perf notes), programmatic icons 16/48/128, `npm run zip` store target, theme variants (dark/dim/light — check the photon ring/glow against light mode), and a final SPA-nav hardening pass. Modal/composer suspension is ALREADY DONE (pulled into M3).
 
