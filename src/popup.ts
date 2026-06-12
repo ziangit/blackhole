@@ -105,7 +105,15 @@ function renderMeters(): void {
   const minutes = Math.floor(lastState.daySeconds / 60);
   status.textContent = `hole mass ${massPct.toFixed(1)}% · ${minutes} min browsing today`;
 
-  mActive.textContent = `${fmtDur(eff)} of active browsing (decays while you're away)`;
+  // Live presence: a fresh heartbeat means the model is being fed.
+  const sinceBeat =
+    lastState.lastHeartbeatAt > 0
+      ? (Date.now() - lastState.lastHeartbeatAt) / 1000
+      : Infinity;
+  const browsingNow = sinceBeat < 70;
+  mActive.textContent = browsingNow
+    ? `browsing now — ${fmtDur(eff)} of active time banked`
+    : `away — ${fmtDur(eff)} banked, decaying`;
 
   if (settings.forceShow) {
     mAppear.textContent = "hole is forced on (Show Black Hole Now)";
@@ -118,11 +126,15 @@ function renderMeters(): void {
   }
 
   // Decay from eff down to the grace boundary (or to ~zero if grace is 0):
-  // t = halfLife · log2(eff / threshold).
+  // t = halfLife · log2(eff / threshold). HYPOTHETICAL while browsing
+  // ("if you stepped away"), an actual countdown once away — the old
+  // unconditional wording read like the hole was already dying mid-scroll.
   const threshold = Math.max(graceSec, 0.5);
   if (eff > threshold) {
     const mins = settings.decayHalfLifeMinutes * Math.log2(eff / threshold);
-    mGone.textContent = `disappears ${fmtDur(mins * 60)} after you step away`;
+    mGone.textContent = browsingNow
+      ? `if you stepped away now: gone after ${fmtDur(mins * 60)}`
+      : `decaying — gone in ${fmtDur(mins * 60)}`;
   } else {
     mGone.textContent = "not out yet — nothing to starve";
   }
