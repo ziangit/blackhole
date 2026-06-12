@@ -18,7 +18,7 @@ import { DEFAULT_SETTINGS, loadSettings, type Settings } from "./settings";
 
 const FADE_MASS = 0.05;
 const MASS_TAU_MS = 700; // eased mass time constant — never pops
-const INFLUENCE_FACTOR = 2.2; // lens influence radius vs disc radius
+const INFLUENCE_FACTOR = 2.6; // lens influence radius vs disc radius
 const COLUMN_REACQUIRE_MS = 1000;
 const MODAL_CHECK_MS = 300; // DOM query for open dialogs, throttled
 const REDUCED_POLL_MS = 600; // reduced motion has no rAF to notice modals with
@@ -182,7 +182,7 @@ export class HoleController {
       radius: Math.max(discR * INFLUENCE_FACTOR, 1),
       mass: m,
     };
-    this.overlay.draw(x, y, discR, m, alpha);
+    this.overlay.draw(x, y, discR, m, alpha, this.motion.reduced ? 0 : now / 1000);
     this.renderManager?.frame(this.hole);
   }
 }

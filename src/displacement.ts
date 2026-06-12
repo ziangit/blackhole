@@ -1,13 +1,17 @@
 // Displacement-map generation for the feDisplacementMap lens.
-// Radial deflection vectors encoded in R/G around the 128 neutral point;
-// deflection ∝ mass / max(r, eventRadius)². Map edges fade smoothly to
-// neutral so the filter never shifts content outside the hole's influence.
+// Deflection vectors encoded in R/G around the 128 neutral point;
+// magnitude ∝ mass / max(r, eventRadius)². The vector is radial pull plus a
+// tangential SWIRL component — pure inward pull reads as "suction", the
+// tangential part wraps content AROUND the hole like the reference shader
+// (light orbiting the photon sphere). Map edges fade smoothly to neutral so
+// the filter never shifts content outside the hole's influence.
 // Mirrored at build time by tools/gen-displacement.mjs — keep in sync.
 
 export const MAP_SIZE = 256;
 
 const EVENT_R = 0.15;
-const STRENGTH = 0.05;
+const STRENGTH = 0.085;
+const SWIRL = 0.8; // tangential : radial deflection ratio
 
 export function renderDisplacementMap(
   canvas: HTMLCanvasElement,
@@ -33,8 +37,16 @@ export function renderDisplacementMap(
         const f = Math.min((1 - r) / 0.25, 1);
         m *= f * f * (3 - 2 * f);
         m = Math.min(m, 1);
-        dx = (nx / r) * m;
-        dy = (ny / r) * m;
+        const ux = nx / r;
+        const uy = ny / r;
+        dx = (ux - SWIRL * uy) * m;
+        dy = (uy + SWIRL * ux) * m;
+        // The 128±127 encoding can't hold vectors longer than 1.
+        const len = Math.hypot(dx, dy);
+        if (len > 1) {
+          dx /= len;
+          dy /= len;
+        }
       }
       const i = (y * size + x) * 4;
       data[i] = Math.round(128 + dx * 127);

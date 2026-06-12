@@ -1,10 +1,15 @@
 // The hole's visual layer: a position:fixed, pointer-events:none canvas
-// covering the viewport. Draws (back to front): warm accretion glow,
-// chromatic fringe (offset orange/blue arcs — drawn, not sampled), bright
-// thin photon ring, pure black event-horizon disc. The caller owns the rAF
-// loop and all pause/fade logic; this class only sizes and paints.
+// covering the viewport. Modeled on the reference shader look (Ghostty
+// black hole): warm accretion glow, faint chromatic ring echoes rippling
+// outward (drawn RGB-offset arcs — not sampled), a bright thin photon ring,
+// an orbiting white-hot accretion hotspot on the ring, and the pure black
+// event-horizon disc. The caller owns the rAF loop and all pause/fade
+// logic; this class only sizes and paints. tSec drives the hotspot orbit —
+// pass a constant for prefers-reduced-motion (static hotspot).
 
 const TAU = Math.PI * 2;
+const HOTSPOT_RATE = 0.55; // rad/s — one orbit ≈ 11 s
+const HOTSPOT_PHASE = 2.4; // t=0 → lower-left, like the reference
 
 export class HoleOverlay {
   private canvas: HTMLCanvasElement;
@@ -45,7 +50,14 @@ export class HoleOverlay {
     this.blank = true;
   }
 
-  draw(x: number, y: number, discR: number, mass: number, alpha: number): void {
+  draw(
+    x: number,
+    y: number,
+    discR: number,
+    mass: number,
+    alpha: number,
+    tSec = 0,
+  ): void {
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.w, this.h);
@@ -54,39 +66,67 @@ export class HoleOverlay {
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // accretion glow
-    const glowR = discR * 2.0;
-    const glow = ctx.createRadialGradient(x, y, discR * 0.8, x, y, glowR);
-    glow.addColorStop(0, `rgba(255,150,70,${0.16 + 0.18 * mass})`);
-    glow.addColorStop(0.55, `rgba(255,120,40,${0.05 + 0.08 * mass})`);
+    // accretion glow — tight around the ring; the surroundings stay dark
+    // like the reference, the chroma rings carry the color further out
+    const glowR = discR * 1.9;
+    const glow = ctx.createRadialGradient(x, y, discR * 0.9, x, y, glowR);
+    glow.addColorStop(0, `rgba(255,150,70,${0.14 + 0.16 * mass})`);
+    glow.addColorStop(0.45, `rgba(255,120,40,${0.04 + 0.06 * mass})`);
     glow.addColorStop(1, "rgba(255,110,30,0)");
     ctx.fillStyle = glow;
     ctx.beginPath();
     ctx.arc(x, y, glowR, 0, TAU);
     ctx.fill();
 
-    // chromatic fringe: offset orange/blue arcs just outside the ring
-    const fringeR = discR * 1.07;
-    const fringeOff = Math.max(1.2, discR * 0.015);
-    ctx.lineWidth = Math.max(1.5, discR * 0.02);
-    ctx.strokeStyle = "rgba(255,140,40,0.5)";
-    ctx.beginPath();
-    ctx.arc(x + fringeOff, y, fringeR, 0, TAU);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(90,150,255,0.4)";
-    ctx.beginPath();
-    ctx.arc(x - fringeOff, y, fringeR, 0, TAU);
-    ctx.stroke();
+    // chromatic ring echoes — RGB-separated arcs rippling outward, fading
+    // with distance (the drawn stand-in for the shader's lensed rings)
+    const chromaOff = Math.max(1.5, discR * 0.02);
+    for (let i = 0; i < 3; i++) {
+      const rr = discR * (1.16 + i * 0.24);
+      const a = (0.4 / (i + 1)) * (0.4 + 0.6 * mass);
+      ctx.lineWidth = Math.max(1.2, discR * (0.022 - i * 0.005));
+      ctx.strokeStyle = `rgba(255,90,50,${a})`;
+      ctx.beginPath();
+      ctx.arc(x + chromaOff * (i + 1), y, rr, 0, TAU);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(80,150,255,${a * 0.85})`;
+      ctx.beginPath();
+      ctx.arc(x - chromaOff * (i + 1), y, rr, 0, TAU);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(120,255,150,${a * 0.5})`;
+      ctx.beginPath();
+      ctx.arc(x, y + chromaOff * (i + 1) * 0.6, rr, 0, TAU);
+      ctx.stroke();
+    }
 
     // photon ring — thin, bright, slightly warm, with a soft bloom
     ctx.save();
-    ctx.lineWidth = Math.max(1.25, discR * 0.018);
-    ctx.strokeStyle = "rgba(255,243,224,0.95)";
-    ctx.shadowColor = "rgba(255,200,120,0.9)";
-    ctx.shadowBlur = Math.max(4, discR * 0.12);
+    ctx.lineWidth = Math.max(1.5, discR * 0.022);
+    ctx.strokeStyle = "rgba(255,246,230,0.98)";
+    ctx.shadowColor = "rgba(255,200,120,0.95)";
+    ctx.shadowBlur = Math.max(5, discR * 0.16);
     ctx.beginPath();
     ctx.arc(x, y, discR * 1.03, 0, TAU);
     ctx.stroke();
+    ctx.restore();
+
+    // accretion hotspot — white-hot blob orbiting the ring (Doppler-bright
+    // side of the accretion disc in the reference)
+    const theta = HOTSPOT_PHASE + tSec * HOTSPOT_RATE;
+    const hx = x + Math.cos(theta) * discR * 1.03;
+    const hy = y + Math.sin(theta) * discR * 1.03;
+    const hotR = Math.max(6, discR * 0.5);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const hot = ctx.createRadialGradient(hx, hy, 0, hx, hy, hotR);
+    hot.addColorStop(0, `rgba(255,255,250,${0.85 * (0.5 + 0.5 * mass)})`);
+    hot.addColorStop(0.25, `rgba(255,220,170,${0.5 * (0.5 + 0.5 * mass)})`);
+    hot.addColorStop(0.6, "rgba(255,150,70,0.18)");
+    hot.addColorStop(1, "rgba(255,120,40,0)");
+    ctx.fillStyle = hot;
+    ctx.beginPath();
+    ctx.arc(hx, hy, hotR, 0, TAU);
+    ctx.fill();
     ctx.restore();
 
     // event horizon

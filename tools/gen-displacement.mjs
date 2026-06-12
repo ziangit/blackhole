@@ -44,12 +44,14 @@ function encodePNG(width, height, rgba) {
   ]);
 }
 
-// Same lens model as src/displacement.ts: deflection ∝ mass / max(r, eventR)²,
-// vectors encoded in R/G around 128, edges faded to neutral so the map never
-// shifts content outside the hole's influence.
+// Same lens model as src/displacement.ts (keep in sync): radial pull +
+// tangential swirl, magnitude ∝ mass / max(r, eventR)², vectors encoded in
+// R/G around 128, edges faded to neutral so the map never shifts content
+// outside the hole's influence.
 export function generateDisplacementPNG(size = 256, mass = 0.7) {
   const EVENT_R = 0.15;
-  const STRENGTH = 0.05;
+  const STRENGTH = 0.085;
+  const SWIRL = 0.8;
   const rgba = Buffer.alloc(size * size * 4);
   const c = (size - 1) / 2;
   for (let y = 0; y < size; y++) {
@@ -64,8 +66,15 @@ export function generateDisplacementPNG(size = 256, mass = 0.7) {
         const f = Math.min((1 - r) / 0.25, 1);
         m *= f * f * (3 - 2 * f); // smoothstep fade to neutral at map edge
         m = Math.min(m, 1);
-        dx = (nx / r) * m;
-        dy = (ny / r) * m;
+        const ux = nx / r;
+        const uy = ny / r;
+        dx = (ux - SWIRL * uy) * m;
+        dy = (uy + SWIRL * ux) * m;
+        const len = Math.hypot(dx, dy);
+        if (len > 1) {
+          dx /= len;
+          dy /= len;
+        }
       }
       const i = (y * size + x) * 4;
       rgba[i] = Math.round(128 + dx * 127);

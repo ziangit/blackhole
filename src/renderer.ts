@@ -35,7 +35,7 @@ export type MapSource = "data" | "packaged";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const FILTER_ID = "event-horizon-lens";
-const MAX_SCALE = 85; // feDisplacementMap scale at mass 1 (max shift = scale/2)
+const MAX_SCALE = 150; // feDisplacementMap scale at mass 1 (max shift = scale/2)
 const MAP_REGEN_MIN_MS = 100; // ≤ 10 Hz
 const MASS_TIERS = 8;
 

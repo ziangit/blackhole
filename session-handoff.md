@@ -1,6 +1,6 @@
 # Session handoff
 
-**Current phase:** Milestone 3 — BUILT and headlessly verified (13/13 unit tests still green; M3 manual script appended to docs/MANUAL-TESTS.md §7, awaiting the user's pass on real x.com). Next: Milestone 4 — polish & shippability.
+**Current phase:** Milestone 3 — manual pass MOSTLY GOOD (user feedback 2026-06-11), then a motion/look restyle applied from that feedback (see ARCHITECTURE.md "Motion & look restyle"): viewport-wide faster drift, displacement swirl, stronger warp, hotspot + chroma echoes on the overlay. Awaiting the user's re-check of the restyle on real x.com. Next: Milestone 4 — polish & shippability.
 **Repo:** pushed to https://github.com/ziangit/blackhole (origin/main).
 **Next concrete step:** After manual sign-off, M4: README (privacy statement, settings table, perf notes), programmatic icons 16/48/128, `npm run zip` store target, theme variants (dark/dim/light — check the photon ring/glow against light mode), and a final SPA-nav hardening pass. Modal/composer suspension is ALREADY DONE (pulled into M3).
 
@@ -13,4 +13,4 @@
 - Headless rig gotcha (cost a debugging detour, recorded in ARCHITECTURE.md): `--virtual-time-budget` freezes rAF timestamps — eased-mass pipeline never moves and screenshots show stale composites. Use real time + `?stall=1` + `--timeout`.
 
 ## Open questions
-- None blocking. M4 notes: influence radius factor 2.2×disc still untuned against real-feed feel (judge during the manual pass); light-theme overlay colors unreviewed; consider whether the degrade rung should also reset on SPA navigation (currently sticky per page load — deliberate, revisit if it feels too sticky).
+- None blocking. M4 notes: restyle tuning values (SWIRL 0.8, MAX_SCALE 150, drift periods 9–30 s, hotspot 0.55 rad/s) chosen against headless screenshots — user feel-check pending; light-theme overlay colors unreviewed; consider whether the degrade rung should also reset on SPA navigation (currently sticky per page load — deliberate, revisit if it feels too sticky). Stronger warp = bigger raster cost; if real-feed frame times suffer, the degrade ladder will catch it — watch for unexpected degrades during the re-check.
