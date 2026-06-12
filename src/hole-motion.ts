@@ -36,12 +36,18 @@ export class HoleMotion {
   ): { x: number; y: number } {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const cx = columnRect ? columnRect.left + columnRect.width / 2 : w / 2;
+    // Plausibility guard: a "column" wider than ~62% of the viewport means
+    // acquisition fell back to the whole main element (sidebar included,
+    // center right-of-viewport-center) — anchoring there parks the hole at
+    // the right edge. Use a symmetric viewport anchor instead.
+    const plausible =
+      !!columnRect && columnRect.width > 240 && columnRect.width < w * 0.62;
+    const cx = plausible ? columnRect.left + columnRect.width / 2 : w / 2;
     if (this.reduced) return { x: cx, y: h / 2 };
     const t = nowMs / 1000;
     const mx = Math.min(discRadius + 12, w / 2);
     const my = Math.min(discRadius + 12, h / 2);
-    const ax = columnRect ? columnRect.width * 0.6 : w * 0.25;
+    const ax = plausible ? columnRect.width * 0.6 : w * 0.25;
     const ay = Math.max(0, h / 2 - my);
     const [p0, p1, p2, p3, p4, p5] = this.ph;
     let wx =

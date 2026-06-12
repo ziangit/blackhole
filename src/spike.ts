@@ -18,6 +18,7 @@ import { displacementDataURL } from "./displacement";
 import type { HoleController } from "./hole-controller";
 import type { RenderManager } from "./render-manager";
 import { svgEl } from "./renderer";
+import { acquireColumn } from "./timeline";
 
 type Strategy = "off" | "lens-data" | "lens-packaged" | "spaghetti" | "overlay-only";
 const ORDER: Strategy[] = [
@@ -276,10 +277,22 @@ function ensurePanel(): void {
 
 function updatePanel(): void {
   if (!state.statusEl) return;
+  // Anchor diagnostics: which element the hole is anchored to and where the
+  // hole actually is — a screenshot of this panel explains any motion bug.
+  const col = acquireColumn();
+  let anchor = "none";
+  if (col) {
+    const r = col.getBoundingClientRect();
+    const name = col.dataset["testid"] ?? col.tagName.toLowerCase();
+    anchor = `${name} ${Math.round(r.left)}..${Math.round(r.right)} vp ${window.innerWidth}`;
+  }
+  const hole = controller.currentHole();
   state.statusEl.textContent = [
     `event-horizon ${__EH_BUILD__}`,
     `strategy : ${state.strategy}`,
     `live     : ${manager.status()}`,
+    `anchor   : ${anchor}`,
+    `hole     : ${Math.round(hole.x)},${Math.round(hole.y)} r${Math.round(hole.radius)} m${hole.mass.toFixed(2)}`,
     `probe    : ${state.probeResult}`,
     `CSP hits : ${state.cspViolations}${state.lastViolation ? ` (${state.lastViolation})` : ""}`,
     `Ctrl+Shift+B to cycle`,
