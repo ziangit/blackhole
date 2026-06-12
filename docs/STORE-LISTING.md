@@ -1,5 +1,11 @@
 # Chrome Web Store listing — ready to paste
 
+> **STALE as of 2026-06-12:** the extension scope changed from X-only to
+> all http/https sites, and the visuals gained a WebGL disc/starfield.
+> The single-purpose statement, descriptions, and permission story below
+> must be rewritten for the broader scope before submission (broad-host
+> review track applies). Kept for reference.
+
 ## Title
 
 event-horizon — anti-doomscrolling black hole for X

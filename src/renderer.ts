@@ -279,7 +279,7 @@ export class SpaghettiRenderer implements LensRenderer {
       for (const mut of muts) {
         for (const node of mut.addedNodes) {
           if (!(node instanceof HTMLElement)) continue;
-          if (node.tagName === "ARTICLE") this.io.observe(node);
+          if (this.isTarget(node)) this.io.observe(node);
           for (const a of node.querySelectorAll<HTMLElement>("article")) {
             this.io.observe(a);
           }
@@ -290,7 +290,24 @@ export class SpaghettiRenderer implements LensRenderer {
     diagInc("mutationObserver");
   }
 
-  // Re-arm both observers whenever X's SPA replaces the column.
+  // Suckable units: <article>s where the site has them (X, blogs, news);
+  // otherwise the column's direct block children (generic sites). Never
+  // tiny fragments — whole blocks read as "content being devoured".
+  private isTarget(el: HTMLElement): boolean {
+    if (el.tagName === "ARTICLE") return true;
+    return el.parentElement === this.column && el.offsetHeight > 40;
+  }
+
+  private targetsOf(col: HTMLElement): HTMLElement[] {
+    const articles = [...col.querySelectorAll<HTMLElement>("article")];
+    if (articles.length > 0) return articles;
+    return [...col.children].filter(
+      (el): el is HTMLElement =>
+        el instanceof HTMLElement && el.offsetHeight > 40,
+    );
+  }
+
+  // Re-arm both observers whenever the SPA replaces the column.
   private ensureColumn(): boolean {
     if (this.column?.isConnected) return true;
     const col = acquireColumn();
@@ -301,9 +318,7 @@ export class SpaghettiRenderer implements LensRenderer {
     this.visible.clear();
     // Styles saved against the old column would otherwise leak forever.
     for (const el of [...this.saved.keys()]) this.restore(el);
-    for (const a of col.querySelectorAll<HTMLElement>("article")) {
-      this.io.observe(a);
-    }
+    for (const t of this.targetsOf(col)) this.io.observe(t);
     this.mo.observe(col, { childList: true, subtree: true });
     return true;
   }

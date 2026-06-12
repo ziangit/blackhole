@@ -12,7 +12,7 @@
 import { diagDec, diagInc } from "./diag";
 import { HoleMotion } from "./hole-motion";
 import type { HoleState } from "./mass";
-import { HoleOverlay } from "./overlay";
+import { createOverlay } from "./overlay-gl";
 import type { RenderManager } from "./render-manager";
 import type { Hole } from "./renderer";
 import { DEFAULT_SETTINGS, loadSettings, type Settings } from "./settings";
@@ -39,7 +39,7 @@ const REDUCED_POLL_MS = 600; // reduced motion has no rAF to notice modals with
 import { acquireColumn } from "./timeline";
 
 export class HoleController {
-  private overlay = new HoleOverlay();
+  private overlay = createOverlay();
   private motion = new HoleMotion();
   private settings: Settings = DEFAULT_SETTINGS;
   private targetMass = 0;

@@ -1,10 +1,12 @@
 # event-horizon
 
-An anti-doomscrolling black hole for X/Twitter (Chrome extension, Manifest
-V3). The longer you scroll, the bigger a black hole grows inside your feed —
-gravitationally lensing the actual page, with real tweets bending and
-swirling into it. Leave the site and it slowly starves and shrinks. Closing
-the tab is the reset; there is deliberately no reset button.
+An anti-doomscrolling black hole for the web (Chrome extension, Manifest
+V3 — born on X/Twitter, now runs on every site). The longer you browse,
+the bigger a black hole grows inside the page — gravitationally lensing
+the actual content, with real page elements bending and swirling into it,
+ringed by a GLSL-rendered accretion disc and lensed starfield. Step away
+and it slowly starves and shrinks. Closing the tab is the reset; there is
+deliberately no reset button.
 
 Inspired by [s13k's ghostty-blackhole](https://github.com/s0xDk/ghostty-blackhole) —
 a Ghostty shader where a black hole grows the longer you *work*. This
@@ -48,11 +50,13 @@ Right-click the toolbar icon → Options. Changes apply live.
 
 ## Privacy
 
-- Runs **only** on `x.com` and `twitter.com` (and nowhere else — the
-  manifest's match patterns are checked by an automated test).
-- **Reads no tweet content.** The renderers touch geometry only: element
+- Runs on http/https pages (match patterns checked by an automated test);
+  below your grace threshold it leaves every page **completely
+  untouched** — no DOM, no filters, no animation (asserted by an
+  automated soak).
+- **Reads no page content.** The renderers touch geometry only: element
   rectangles, CSS transforms, and an SVG filter. Nothing reads any text
-  from the page.
+  from any page.
 - **No data leaves your machine.** There is no network code at all — no
   fetch, no XHR, no analytics, no telemetry. The only stored data is your
   settings and the hole's mass, in `chrome.storage.local`.

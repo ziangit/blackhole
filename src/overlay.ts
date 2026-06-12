@@ -9,6 +9,21 @@
 
 import { diagDec, diagInc } from "./diag";
 
+/** Contract shared by the canvas-2D and WebGL overlays. */
+export interface OverlayLike {
+  resize(): void;
+  clear(): void;
+  draw(
+    x: number,
+    y: number,
+    discR: number,
+    mass: number,
+    alpha: number,
+    tSec?: number,
+  ): void;
+  dispose(): void;
+}
+
 const TAU = Math.PI * 2;
 const HOTSPOT_RATE = 0.55; // rad/s — one orbit ≈ 11 s
 const HOTSPOT_PHASE = 2.4; // t=0 → lower-left, like the reference
@@ -21,7 +36,7 @@ const ORBIT_A = 2.8; // semi-major axis / discR
 const ORBIT_B = 0.85; // semi-minor axis / discR (inclined view)
 const ORBIT_TILT = -0.42; // rad — the logo's diagonal
 
-export class HoleOverlay {
+export class HoleOverlay implements OverlayLike {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private w = 0;

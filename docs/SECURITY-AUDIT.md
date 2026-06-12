@@ -22,12 +22,20 @@ grep -cE "fetch\(|XMLHttpRequest|WebSocket|sendBeacon|new Function|\beval\(" dis
 - The lens map is a `data:` URL produced from an offscreen canvas of
   locally computed pixels — no external image sources.
 
+> **Scope change 2026-06-12 (owner decision):** content scripts now match
+> ALL http/https sites (was: x.com/twitter.com only). The zero-network,
+> no-content-reading, and local-only-storage claims below are unchanged
+> and were re-verified — but the §2/§3 scope statements and the store
+> single-purpose/permission story must be re-written before any store
+> submission. test/manifest-check.mjs enforces the new policy.
+
 ## 2. Permission minimization
 
 Manifest requests exactly `storage` + `alarms`. No `host_permissions`, no
-`optional_permissions`, no `tabs`, no `<all_urls>`, no
-`externally_connectable`. `web_accessible_resources` exposes one PNG,
-scoped with `matches` to the two X origins only.
+`optional_permissions`, no `tabs`, no `externally_connectable`.
+Content-script matches are explicit `http://*/*` + `https://*/*` (NOT
+`<all_urls>`, which would include `file://`). `web_accessible_resources`
+exposes one PNG, scoped with `matches` to the same patterns.
 
 **Enforced automatically**: `test/manifest-check.mjs` (part of `npm test`)
 asserts all of the above against both `manifest.json` and
@@ -38,11 +46,14 @@ asserts all of the above against both `manifest.json` and
 
 ## 3. Injection scope
 
-Content script matches are exactly `https://x.com/*` and
-`https://twitter.com/*` (asserted by manifest-check). **Human verification
-for the reviewer**: install, visit any non-X site, open DevTools — no
-`[event-horizon]` console lines, `document.getElementById("event-horizon-overlay")`
-is null, no extension entries under Sources → Content scripts.
+Content script matches are exactly `http://*/*` + `https://*/*`
+(asserted by manifest-check). The script runs on every site by design —
+the verifiable claims are therefore behavioral, not scope-based: it never
+reads page text (§5), never talks to the network (§1), and below the
+grace boundary it leaves the page completely untouched (soak baseline
+assertion). **Human verification**: on any site, before the grace period,
+DevTools shows no extension DOM (`document.getElementById("event-horizon-overlay")`
+is null) and the console is clean apart from the single build line.
 
 ## 4. Message passing
 

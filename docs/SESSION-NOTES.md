@@ -5,6 +5,36 @@ decided, and where the evidence lives. The forward-looking state lives in
 `session-handoff.md`; durable technical lessons live in
 `docs/ARCHITECTURE.md` — this file is the narrative record.
 
+## 2026-06-12 (later) — GLSL strategy, lens-equation physics, WebGL overlay, all-web scope
+
+Discussion first: can we use Bruneton's black-hole shader / the
+ghostty-blackhole GLSL? Research conclusion (recorded in ARCHITECTURE):
+**GLSL over page content is deliberately impossible** — CSS Custom Filters
+was removed for pixel-stealing timing attacks; every capture API carries a
+user-visible indicator. But Bruneton's design is precompute-deflection-
+into-tables + per-pixel lookup, which is architecturally what
+feDisplacementMap already is. So:
+
+- Displacement map now encodes the **real point-mass lens equation**
+  (β = θ − θE²/θ): outward apparent push, tangential stretch, and the
+  sign flip inside the Einstein radius gives an inverted secondary image
+  for free. Small artistic swirl retained (0.35).
+- **WebGL overlay** (`src/overlay-gl.ts`): true GLSL for everything we
+  own — lensed procedural starfield (same lens equation as the map),
+  Keplerian disc with Doppler beaming, near-side band in front of the
+  horizon / far side arcing over it, photon ring + bloom, dark veil.
+  Canvas-2D overlay kept as the no-WebGL fallback behind a shared
+  `OverlayLike` contract. Verified dpr=1 and dpr=2.
+- **All-web scope (owner decision, supersedes the X-only 1.0.0 framing):**
+  matches `http://*/*` + `https://*/*`; `acquireColumn` generalized
+  (testid → article/paragraph climb → main → null = overlay-only; never
+  a page-wide filter target); spaghetti falls back to the column's block
+  children; copy → "minutes browsing today". manifest-check enforces the
+  new policy; SECURITY-AUDIT scope sections updated; STORE-LISTING marked
+  stale pending a rewrite for the broad-host review track.
+
+Awaiting the user's manual check of the new look on real sites.
+
 ## 2026-06-11/12 — M3 → live-feedback rounds → 1.0.0 pre-publish
 
 One long session from "wire the lens to live mass" to a store-ready

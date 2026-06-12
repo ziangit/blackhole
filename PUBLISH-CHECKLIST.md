@@ -1,5 +1,10 @@
 # Publish checklist — event-horizon 1.0.0
 
+> **2026-06-12: scope changed to ALL http/https sites + WebGL overlay
+> landed.** Rows touching scope (manifest-check, audit §2/§3) reflect the
+> new policy; STORE-LISTING.md copy is stale and must be rewritten before
+> submission (broad-host review track). A new soak run gates the change.
+
 ## Verified automatically (re-run before upload)
 
 | Check | Evidence / command | Status (2026-06-12) |

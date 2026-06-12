@@ -49,7 +49,7 @@ function renderStatus(state: HoleState | undefined): void {
   if (!state) return;
   const pct = Math.round(state.mass * 100);
   const minutes = Math.floor(state.daySeconds / 60);
-  status.textContent = `hole mass ${pct}% · ${minutes} min on X today`;
+  status.textContent = `hole mass ${pct}% · ${minutes} min browsing today`;
 }
 
 async function init(): Promise<void> {

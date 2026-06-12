@@ -44,14 +44,15 @@ export function encodePNG(width, height, rgba) {
   ]);
 }
 
-// Same lens model as src/displacement.ts (keep in sync): radial pull +
-// tangential swirl, magnitude ∝ mass / max(r, eventR)², vectors encoded in
-// R/G around 128, edges faded to neutral so the map never shifts content
-// outside the hole's influence.
+// Same lens model as src/displacement.ts (keep in sync): point-mass lens
+// equation β = θ − θE²/θ (displacement toward the center by θE²/θ; sign
+// flips inside the Einstein radius → inverted secondary image) plus a
+// small artistic swirl. Vectors encoded in R/G around 128, edges faded to
+// neutral so the map never shifts content outside the hole's influence.
 export function generateDisplacementPNG(size = 256, mass = 1) {
-  const EVENT_R = 0.15;
-  const STRENGTH = 0.07;
-  const SWIRL = 0.8;
+  const THETA_E = 0.3;
+  const STRENGTH = 0.55;
+  const SWIRL = 0.35;
   const rgba = Buffer.alloc(size * size * 4);
   const c = (size - 1) / 2;
   for (let y = 0; y < size; y++) {
@@ -62,14 +63,13 @@ export function generateDisplacementPNG(size = 256, mass = 1) {
       let dx = 0;
       let dy = 0;
       if (r > 1e-4 && r < 1) {
-        let m = (mass * STRENGTH) / Math.max(r, EVENT_R) ** 2;
+        let m = (mass * STRENGTH * THETA_E * THETA_E) / r;
         const f = Math.min((1 - r) / 0.25, 1);
         m *= f * f * (3 - 2 * f); // smoothstep fade to neutral at map edge
-        m = Math.min(m, 1);
         const ux = nx / r;
         const uy = ny / r;
-        dx = (ux - SWIRL * uy) * m;
-        dy = (uy + SWIRL * ux) * m;
+        dx = -ux * m - SWIRL * -uy * m;
+        dy = -uy * m - SWIRL * ux * m;
         const len = Math.hypot(dx, dy);
         if (len > 1) {
           dx /= len;
