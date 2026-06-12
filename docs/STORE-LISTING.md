@@ -1,10 +1,8 @@
 # Chrome Web Store listing — ready to paste
 
-> **STALE as of 2026-06-12:** the extension scope changed from X-only to
-> all http/https sites, and the visuals gained a WebGL disc/starfield.
-> The single-purpose statement, descriptions, and permission story below
-> must be rewritten for the broader scope before submission (broad-host
-> review track applies). Kept for reference.
+> **OBSOLETE (2026-06-12, owner decision): the extension will NOT be
+> published to the Chrome Web Store** — it ships as an open-source
+> load-unpacked project only. Kept for reference in case that changes.
 
 ## Title
 

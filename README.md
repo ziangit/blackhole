@@ -12,16 +12,18 @@ Inspired by [s13k's ghostty-blackhole](https://github.com/s0xDk/ghostty-blackhol
 a Ghostty shader where a black hole grows the longer you *work*. This
 extension inverts the idea: the hole feeds on doomscrolling instead.
 
-## Install
+> **Not on the Chrome Web Store.** This is an open-source project you
+> build and load yourself — there is no published extension and no plan
+> to submit one.
 
-From the Chrome Web Store: search "event-horizon" (pending review), or
-load it yourself:
+## Install
 
 1. `npm install && npm run build`
 2. Open `chrome://extensions`, enable **Developer mode**
 3. **Load unpacked** → select the `dist/` folder
-4. Visit x.com and start scrolling. The toolbar badge counts your minutes
-   on X today.
+4. Browse anywhere and start scrolling. The toolbar badge counts your
+   minutes browsing today; click the icon for the popup (status meters,
+   Show Black Hole Now, grace presets, reset).
 
 ## How it works
 

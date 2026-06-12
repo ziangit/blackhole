@@ -1,5 +1,10 @@
 # Publish checklist — event-horizon 1.0.0
 
+> **OBSOLETE (2026-06-12, owner decision): no store submission planned —
+> open-source, load-unpacked distribution only.** The "Verified
+> automatically" table remains useful as the project's quality gate;
+> the "Human must do" store steps no longer apply.
+
 > **2026-06-12: scope changed to ALL http/https sites + WebGL overlay
 > landed.** Rows touching scope (manifest-check, audit §2/§3) reflect the
 > new policy; STORE-LISTING.md copy is stale and must be rewritten before

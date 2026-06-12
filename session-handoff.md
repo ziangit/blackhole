@@ -5,7 +5,7 @@
 
 **Current phase:** 1.0.0 PRE-PUBLISH COMPLETE — graceMinutes feature (supersedes appearAfterMinutes; remap + validation clamp + lazy overlay + tests 16/16), security/privacy audit (docs/SECURITY-AUDIT.md; hardening shipped: sender.id check, message range validation, isTrusted spike gate, manifest-check wired into npm test), resource/leak verification (src/diag.ts counters + test/soak-sandbox.html — all PASS at dpr=2, flat heap), store package (README, LICENSE MIT, docs/STORE-LISTING.md, programmatic icons, zip verified identical to dist, tools/store-screenshot.sh). **Final deliverable: PUBLISH-CHECKLIST.md — its "Human must do" section is the user's queue (fresh-profile install from zip, multi-day Task-Manager soak, real-feed capture, $5 dev account, dashboard forms from STORE-LISTING.md, submit).**
 **Repo:** pushed to https://github.com/ziangit/blackhole (origin/main).
-**Next concrete step:** support the user through the "Human must do" checklist; on review feedback, fix and re-zip. Remaining known polish (optional, post-1.0): light/dim theme pass on overlay colors, degrade-rung reset on SPA nav.
+**Next concrete step:** none queued — distribution decision made 2026-06-12: NO Chrome Web Store submission; open-source load-unpacked only (README/STORE-LISTING/PUBLISH-CHECKLIST updated; the checklist's automated table remains the quality gate). Remaining known polish (optional): light/dim theme pass on overlay colors, degrade-rung reset on SPA nav.
 
 ## Done so far
 - Milestone 0 ✅ signed off live (all three strategies PASS, 0 CSP hits). Default: lens-data.
