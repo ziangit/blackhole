@@ -36,7 +36,7 @@ export type MapSource = "data" | "packaged";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const FILTER_ID = "event-horizon-lens";
-const MAX_SCALE = 340; // feDisplacementMap scale at mass 1 (max shift = scale/2)
+const MAX_SCALE = 430; // feDisplacementMap scale at mass 1 (max shift = scale/2)
 
 // Chromatic aberration: the page is split into R/G/B and each channel is
 // displaced at a slightly different strength, then recombined additively —

@@ -51,7 +51,7 @@ export function encodePNG(width, height, rgba) {
 // neutral so the map never shifts content outside the hole's influence.
 export function generateDisplacementPNG(size = 256, mass = 1) {
   const THETA_E = 0.3;
-  const STRENGTH = 0.55;
+  const STRENGTH = 0.7;
   const SWIRL = 0.35;
   const rgba = Buffer.alloc(size * size * 4);
   const c = (size - 1) / 2;

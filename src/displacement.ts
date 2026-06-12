@@ -25,7 +25,7 @@ export const MAP_SIZE = 256;
 /** Einstein radius as a fraction of the map half-size (influence radius). */
 const THETA_E = 0.3;
 /** Normalizes θE²/θ into the unit encoding range. */
-const STRENGTH = 0.55;
+const STRENGTH = 0.7;
 const SWIRL = 0.35; // tangential : radial ratio (aesthetic only)
 
 export function renderDisplacementMap(

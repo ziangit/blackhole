@@ -6,7 +6,7 @@
 // All state flows through chrome.storage.local; the content script
 // live-applies via storage.onChanged. Deliberately NO mass reset here.
 
-import type { HoleState } from "./mass";
+import { computeMass, type HoleState } from "./mass";
 import {
   loadSettings,
   sanitizeSettings,
@@ -66,24 +66,53 @@ function render(): void {
   renderMeters();
 }
 
+// Heisenhole: opening the popup steals focus from the page, so heartbeats
+// (visible+focused) PAUSE while you watch — storage freezes and the meters
+// would look static. The model is right to gate on focus; the DISPLAY
+// extrapolates per second from the last persisted state instead:
+// counting up at 1× while the last heartbeat is fresh, decaying at the
+// configured half-life once it isn't. Snaps to truth on every storage
+// write. Display-only — nothing here feeds back into the model.
+function extrapolatedEff(): number {
+  if (!lastState) return 0;
+  const eff = lastState.effectiveSeconds;
+  if (!settings.enabled || lastState.lastHeartbeatAt <= 0) return eff;
+  const since = (Date.now() - lastState.lastHeartbeatAt) / 1000;
+  if (since < 0) return eff;
+  if (since < 70) {
+    return Math.min(eff + since, settings.limitMinutes * 60);
+  }
+  // Past the active window: show the decay curve ticking down.
+  return eff * 0.5 ** (since / 60 / settings.decayHalfLifeMinutes);
+}
+
+const fmtDur = (sec: number): string => {
+  const s = Math.max(0, Math.round(sec));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+};
+
 // The three live meters. effectiveSeconds IS the "not idle" clock: it
 // accrues only while a tab is visible+focused (scrolling 1.5×) and decays
 // with the configured half-life when you're away.
 function renderMeters(): void {
   if (!lastState) return;
-  const eff = lastState.effectiveSeconds;
+  const eff = extrapolatedEff();
   const graceSec = settings.graceMinutes * 60;
   const limitSec = settings.limitMinutes * 60;
 
-  mActive.textContent = `${(eff / 60).toFixed(1)} min of active browsing (decays while you're away)`;
+  const massPct =
+    computeMass(eff, settings.limitMinutes, settings.graceMinutes) * 100;
+  const minutes = Math.floor(lastState.daySeconds / 60);
+  status.textContent = `hole mass ${massPct.toFixed(1)}% · ${minutes} min browsing today`;
+
+  mActive.textContent = `${fmtDur(eff)} of active browsing (decays while you're away)`;
 
   if (settings.forceShow) {
     mAppear.textContent = "hole is forced on (Show Black Hole Now)";
   } else if (eff < graceSec) {
-    const mins = (graceSec - eff) / 60;
-    mAppear.textContent = `appears after ~${mins < 1 ? mins.toFixed(1) : Math.ceil(mins)} more min of browsing`;
+    mAppear.textContent = `appears after ${fmtDur(graceSec - eff)} more browsing`;
   } else if (eff < limitSec) {
-    mAppear.textContent = `hole is out — full size in ~${Math.ceil((limitSec - eff) / 60)} more min`;
+    mAppear.textContent = `hole is out — full size in ${fmtDur(limitSec - eff)} more`;
   } else {
     mAppear.textContent = "hole is at full size";
   }
@@ -93,7 +122,7 @@ function renderMeters(): void {
   const threshold = Math.max(graceSec, 0.5);
   if (eff > threshold) {
     const mins = settings.decayHalfLifeMinutes * Math.log2(eff / threshold);
-    mGone.textContent = `disappears ~${mins < 1 ? mins.toFixed(1) : Math.ceil(mins)} min after you step away`;
+    mGone.textContent = `disappears ${fmtDur(mins * 60)} after you step away`;
   } else {
     mGone.textContent = "not out yet — nothing to starve";
   }
@@ -102,9 +131,6 @@ function renderMeters(): void {
 function renderStatus(state: HoleState | undefined): void {
   if (!state) return;
   lastState = state;
-  const pct = Math.round(state.mass * 100);
-  const minutes = Math.floor(state.daySeconds / 60);
-  status.textContent = `hole mass ${pct}% · ${minutes} min browsing today`;
   renderMeters();
 }
 
@@ -146,6 +172,8 @@ async function init(): Promise<void> {
       renderStatus(changes["state"].newValue as HoleState);
     }
   });
+  // Tick the display every second (the popup lives only while open).
+  window.setInterval(renderMeters, 1000);
 
   render();
 }
