@@ -49,6 +49,13 @@ export class HoleOverlay {
     this.dpr = window.devicePixelRatio || 1;
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
+    // A canvas is a REPLACED element: with inset:0 and width:auto its CSS
+    // box is its INTRINSIC (attribute) size, NOT the inset rectangle. On
+    // dpr>1 that made the canvas dpr× the viewport, so everything drew at
+    // dpr× position and size ("the hole lives in the bottom-right corner"
+    // on every Retina screen). Pin the CSS box to the viewport explicitly.
+    this.canvas.style.width = `${this.w}px`;
+    this.canvas.style.height = `${this.h}px`;
   }
 
   clear(): void {
