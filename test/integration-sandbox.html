@@ -76,6 +76,10 @@
 
   const manager = new EH.RenderManager();
   if (mode === "off") manager.force("off");
+  // ?force=lens pins the renderer (disables the degrade ladder) — headless
+  // software raster is slow enough to trip it, which is correct behavior
+  // but wrong for capturing a lens screenshot.
+  if (params.get("force")) manager.force(params.get("force"));
   const controller = new EH.HoleController(manager);
 
   // Pipeline state, readable from the screenshot pixels (--dump-dom does
@@ -85,6 +89,8 @@
   dbg.style.cssText =
     "position:fixed;top:4px;left:4px;z-index:2147483647;margin:0;" +
     "background:#000;color:#0f0;font:bold 26px/1.4 monospace;padding:8px;";
+  // ?clean=1 hides the panel (store-screenshot capture).
+  if (params.get("clean")) dbg.style.display = "none";
   document.body.appendChild(dbg);
   setInterval(() => {
     const arts = [...document.querySelectorAll("article")];

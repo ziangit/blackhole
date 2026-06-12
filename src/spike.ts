@@ -14,6 +14,7 @@
 // Verified live on x.com 2026-06-11: all three strategies PASS, zero CSP
 // violations (docs/ARCHITECTURE.md). lens-data is the default.
 
+import { diagDec, diagInc, diagSummary } from "./diag";
 import { displacementDataURL } from "./displacement";
 import type { HoleController } from "./hole-controller";
 import type { RenderManager } from "./render-manager";
@@ -62,6 +63,7 @@ export function initSpike(
   controller = holeController;
   manager = renderManager;
 
+  diagInc("listener"); // securitypolicyviolation (app-lifetime)
   document.addEventListener("securitypolicyviolation", (e) => {
     state.cspViolations++;
     state.lastViolation = `${e.violatedDirective}: ${e.blockedURI}`;
@@ -69,7 +71,12 @@ export function initSpike(
     updatePanel();
   });
 
+  diagInc("listener"); // keydown (app-lifetime)
   document.addEventListener("keydown", (e) => {
+    // Page scripts can dispatch synthetic KeyboardEvents; only real user
+    // input (isTrusted) may toggle the debug panel. (Even if triggered, the
+    // spike is visual-only and stores nothing — this is defense in depth.)
+    if (!e.isTrusted) return;
     if (e.ctrlKey && e.shiftKey && (e.key === "B" || e.key === "b")) {
       e.preventDefault();
       ensurePanel();
@@ -259,6 +266,7 @@ function ensurePanel(): void {
   state.panel = p;
   // Live view of the manager (degrades happen on their own schedule); also
   // the orphan check — a reloaded extension must not leave a zombie panel.
+  diagInc("interval");
   const interval = window.setInterval(() => {
     let orphaned = true;
     try {
@@ -266,6 +274,7 @@ function ensurePanel(): void {
     } catch {}
     if (orphaned) {
       window.clearInterval(interval);
+      diagDec("interval");
       state.panel?.remove();
       state.panel = null;
       return;
@@ -295,6 +304,7 @@ function updatePanel(): void {
     `hole     : ${Math.round(hole.x)},${Math.round(hole.y)} r${Math.round(hole.radius)} m${hole.mass.toFixed(2)}`,
     `probe    : ${state.probeResult}`,
     `CSP hits : ${state.cspViolations}${state.lastViolation ? ` (${state.lastViolation})` : ""}`,
+    `res      : ${diagSummary()}`,
     `Ctrl+Shift+B to cycle`,
   ].join("\n");
 }

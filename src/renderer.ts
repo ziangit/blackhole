@@ -11,6 +11,7 @@
 // Spaghetti needs no conversion: getBoundingClientRect() on tweets is
 // already viewport-relative.
 
+import { diagDec, diagInc } from "./diag";
 import { displacementDataURL } from "./displacement";
 import { acquireColumn } from "./timeline";
 
@@ -177,6 +178,7 @@ export class FilterLensRenderer implements LensRenderer {
         : displacementDataURL(MAP_REFERENCE_MASS),
     );
     document.documentElement.append(svg);
+    diagInc("svgFilter");
   }
 
   private setHref(href: string): void {
@@ -237,6 +239,7 @@ export class FilterLensRenderer implements LensRenderer {
     if (this.column?.isConnected) this.column.style.filter = this.savedFilter;
     this.column = null;
     this.svg.remove();
+    diagDec("svgFilter");
   }
 }
 
@@ -283,6 +286,8 @@ export class SpaghettiRenderer implements LensRenderer {
         }
       }
     });
+    diagInc("intersectionObserver");
+    diagInc("mutationObserver");
   }
 
   // Re-arm both observers whenever X's SPA replaces the column.
@@ -347,5 +352,7 @@ export class SpaghettiRenderer implements LensRenderer {
     this.mo.disconnect();
     this.visible.clear();
     for (const el of [...this.saved.keys()]) this.restore(el);
+    diagDec("intersectionObserver");
+    diagDec("mutationObserver");
   }
 }

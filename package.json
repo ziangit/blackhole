@@ -1,13 +1,14 @@
 {
   "name": "event-horizon",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
+    "zip": "npm run build && cd dist && zip -rqX ../event-horizon-$npm_package_version.zip . -x '.*'",
     "typecheck": "tsc --noEmit",
-    "test": "esbuild src/mass.ts --bundle --format=esm --outfile=test/.mass.bundle.mjs --log-level=silent && node --test test/mass.test.mjs"
+    "test": "esbuild test/test-entry.ts --bundle --format=esm --outfile=test/.mass.bundle.mjs --log-level=silent && node --test test/mass.test.mjs && node test/manifest-check.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.280",

@@ -70,7 +70,10 @@ async function ensureAlarm(): Promise<void> {
   }
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Only our own content scripts may feed the model (defense in depth —
+  // with no externally_connectable, other senders shouldn't reach us).
+  if (sender.id !== chrome.runtime.id) return false;
   if (!isHeartbeat(msg)) return false;
   void enqueue(() => handleHeartbeat(msg.scrollDelta)).finally(() =>
     sendResponse(true),

@@ -4,3 +4,5 @@ test/shot-*.png
 test/.mass.bundle.mjs
 test/.overlay.bundle.js
 test/.integration.bundle.js
+event-horizon-*.zip
+store-screenshot.png

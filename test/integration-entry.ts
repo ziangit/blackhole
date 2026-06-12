@@ -3,5 +3,7 @@
 //     --global-name=EH --outfile=test/.integration.bundle.js
 // Exposes the real M3 pipeline so the sandbox can drive it headlessly.
 
+export { diagCounts, diagSummary } from "../src/diag";
 export { HoleController } from "../src/hole-controller";
 export { RenderManager } from "../src/render-manager";
+export { DEFAULT_SETTINGS } from "../src/settings";

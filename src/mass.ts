@@ -53,16 +53,21 @@ const smoothstep = (e0: number, e1: number, x: number) => {
 
 // Linear growth with a smoothstep push above raw 0.7: the endgame
 // accelerates and full mass lands slightly before the nominal limit.
-// appearAfterMinutes is a grace period: the hole stays at mass 0 until
-// you've fed it that long, THEN grows over the next limitMinutes. Decay
-// shrinks the same budget, so leaving X re-earns the grace period too.
+// graceMinutes remaps the window: the hole is absent until grace, born
+// small at the grace boundary, and reaches full size at limitMinutes
+// TOTAL — mass = clamp((eff − grace·60) / ((limit − grace)·60)). Decay
+// shrinks the same budget, so a starving hole falls back below the grace
+// boundary and disappears entirely. The (limit − grace) denominator is
+// floored at one minute (sanitizeSettings enforces grace ≤ limit − 1;
+// this is defense in depth against unsanitized input).
 export function computeMass(
   effectiveSeconds: number,
   limitMinutes: number,
-  appearAfterMinutes = 0,
+  graceMinutes = 0,
 ): number {
+  const growMinutes = Math.max(limitMinutes - graceMinutes, 1);
   const raw = clamp(
-    (effectiveSeconds - appearAfterMinutes * 60) / (limitMinutes * 60),
+    (effectiveSeconds - graceMinutes * 60) / (growMinutes * 60),
     0,
     1,
   );
@@ -88,15 +93,15 @@ export function accrueHeartbeat(
   const credit =
     elapsed <= 0 ? 0 : elapsed > HEARTBEAT_SEC * 2 ? HEARTBEAT_SEC : elapsed;
   const rate = scrollDelta >= SCROLL_MEANINGFUL_PX ? SCROLL_MULTIPLIER : 1;
-  const appear = settings.appearAfterMinutes ?? 0;
-  // Cap at grace + limit so an hours-long binge doesn't take hours to decay.
+  const grace = settings.graceMinutes ?? 0;
+  // Cap at the limit so an hours-long binge doesn't take hours to decay.
   const effectiveSeconds = Math.min(
     state.effectiveSeconds + credit * rate,
-    (appear + settings.limitMinutes) * 60,
+    settings.limitMinutes * 60,
   );
   return {
     effectiveSeconds,
-    mass: computeMass(effectiveSeconds, settings.limitMinutes, appear),
+    mass: computeMass(effectiveSeconds, settings.limitMinutes, grace),
     lastHeartbeatAt: now,
     lastDecayAt: state.lastDecayAt,
     dayKey,
@@ -135,7 +140,7 @@ export function decayTick(
     mass: computeMass(
       effectiveSeconds,
       settings.limitMinutes,
-      settings.appearAfterMinutes ?? 0,
+      settings.graceMinutes ?? 0,
     ),
     lastHeartbeatAt: state.lastHeartbeatAt,
     lastDecayAt: now,

@@ -9,6 +9,7 @@
 // The single source of the hole's position: the RenderManager gets the same
 // Hole the overlay just drew, so disc and distortion agree to the pixel.
 
+import { diagDec, diagInc } from "./diag";
 import { HoleMotion } from "./hole-motion";
 import type { HoleState } from "./mass";
 import { HoleOverlay } from "./overlay";
@@ -76,7 +77,11 @@ export class HoleController {
   private destroy(): void {
     this.dead = true;
     this.stop();
-    window.clearInterval(this.reducedPoll);
+    if (this.reducedPoll) {
+      window.clearInterval(this.reducedPoll);
+      this.reducedPoll = 0;
+      diagDec("interval");
+    }
     this.renderManager?.suspend();
     this.overlay.dispose();
     console.info("[event-horizon] orphaned content script cleaned itself up");
@@ -88,6 +93,7 @@ export class HoleController {
     const { state } = await chrome.storage.local.get("state");
     this.targetMass = (state as HoleState | undefined)?.mass ?? 0;
 
+    diagInc("listener"); // storage.onChanged (app-lifetime)
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== "local") return;
       if (changes["settings"]?.newValue) {
@@ -104,10 +110,12 @@ export class HoleController {
       this.wake();
     });
 
+    diagInc("listener"); // visibilitychange (app-lifetime)
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") this.stop();
       else this.wake();
     });
+    diagInc("listener"); // resize (app-lifetime)
     window.addEventListener("resize", () => {
       this.overlay.resize();
       this.wake();
@@ -116,6 +124,7 @@ export class HoleController {
     // Reduced motion renders only on changes — poll so an opening/closing
     // modal still suspends/restores the static hole.
     if (this.motion.reduced) {
+      diagInc("interval");
       this.reducedPoll = window.setInterval(() => {
         if (this.isOrphaned()) {
           this.destroy();
@@ -159,6 +168,7 @@ export class HoleController {
       return;
     }
     if (this.raf) return;
+    diagInc("rafLoop");
     this.lastFrameAt = performance.now();
     const tick = (now: number) => {
       this.raf = requestAnimationFrame(tick);
@@ -188,8 +198,11 @@ export class HoleController {
   }
 
   private stop(): void {
-    cancelAnimationFrame(this.raf);
-    this.raf = 0;
+    if (this.raf) {
+      cancelAnimationFrame(this.raf);
+      this.raf = 0;
+      diagDec("rafLoop");
+    }
     this.overlay.clear();
   }
 

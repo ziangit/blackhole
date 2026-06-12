@@ -5,11 +5,15 @@ Open the extension options page (Details → Extension options) in one window �
 `hole mass N% · M min on X today` status line updates live and is the instrument
 for everything below.
 
+> **1.0.0 note:** the default `graceMinutes` is 5 — the hole (and mass %) stays
+> at zero for the first ~5 effective minutes. For the timing tests below either
+> set "Minutes before the hole appears" to 0 in options, or read "mass climbs"
+> as "minutes today climbs" until past the grace boundary.
+
 ## 1. Feeding & badge (M1)
 1. Open x.com and scroll actively for ~2 minutes.
-2. Expect: options status climbs (scrolling ≈ 1.5× the idle rate — at the default
-   20-min limit, ~2 min of doomscrolling ≈ 15%); badge shows minutes today after
-   the first full minute, background drifting slate→red.
+2. Expect: options status climbs (scrolling ≈ 1.5× the idle rate); badge shows
+   minutes today after the first full minute, background drifting slate→red.
 3. Stop scrolling but keep the tab focused ~1 min: mass still climbs, slower.
 
 ## 2. Visibility gating (M1)

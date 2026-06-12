@@ -2,6 +2,7 @@ import esbuild from "esbuild";
 import { execSync } from "node:child_process";
 import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { generateDisplacementPNG } from "./tools/gen-displacement.mjs";
+import { generateIconPNG } from "./tools/gen-icons.mjs";
 
 const watch = process.argv.includes("--watch");
 
@@ -17,6 +18,9 @@ mkdirSync("dist/assets", { recursive: true });
 // Reference-mass map: intensity is driven by the filter's scale attribute,
 // never by re-baking the map (see src/renderer.ts WARP_GAMMA).
 writeFileSync("dist/assets/displacement.png", generateDisplacementPNG(256, 1));
+for (const size of [16, 48, 128]) {
+  writeFileSync(`dist/assets/icon${size}.png`, generateIconPNG(size));
+}
 cpSync("manifest.json", "dist/manifest.json");
 cpSync("src/options.html", "dist/options.html");
 

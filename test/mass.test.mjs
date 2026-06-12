@@ -7,8 +7,10 @@ import {
   computeMass,
   decayTick,
   emptyState,
+  DEFAULT_SETTINGS,
   HEARTBEAT_SEC,
   MAX_DECAY_STEP_MINUTES,
+  sanitizeSettings,
 } from "./.mass.bundle.mjs";
 
 const SETTINGS = {
@@ -160,29 +162,45 @@ test("mass curve: linear early, accelerating endgame, monotonic", () => {
   assert.ok(1 - computeMass(840, 20) > 0.3);
 });
 
-test("appearAfterMinutes gates mass through the grace period", () => {
-  // 1 min grace + 2 min limit: hidden until 60 s, halfway at 120 s, full at 180 s
-  assert.equal(computeMass(0, 2, 1), 0);
-  assert.equal(computeMass(59, 2, 1), 0);
-  assert.ok(Math.abs(computeMass(120, 2, 1) - 0.5) < 1e-9);
-  assert.equal(computeMass(180, 2, 1), 1);
+test("graceMinutes remap: absent below grace, born at the boundary, full at limit TOTAL", () => {
+  // grace 5, limit 20 → growth window is the remaining 15 minutes
+  assert.equal(computeMass(0, 20, 5), 0);
+  assert.equal(computeMass(5 * 60 - 1, 20, 5), 0); // just below grace
+  assert.equal(computeMass(5 * 60, 20, 5), 0); // born small AT the boundary
+  assert.ok(computeMass(5 * 60 + 30, 20, 5) > 0); // growing just past it
+  assert.ok(Math.abs(computeMass(12.5 * 60, 20, 5) - 0.5) < 1e-9); // window midpoint
+  assert.equal(computeMass(20 * 60, 20, 5), 1); // full size at limitMinutes total
 });
 
-test("appearAfterMinutes: accrual cap covers grace+limit; decay re-earns the grace", () => {
+test("graceMinutes validation: clamped to limit−1, never a divide-by-zero", () => {
+  const sane = (graceMinutes, limitMinutes) =>
+    sanitizeSettings({ ...DEFAULT_SETTINGS, graceMinutes, limitMinutes })
+      .graceMinutes;
+  assert.equal(sane(25, 20), 19); // grace > limit
+  assert.equal(sane(20, 20), 19); // grace = limit
+  assert.equal(sane(-3, 20), 0); // negative
+  assert.equal(sane(5, 1), 0); // tiny limit
+  // Defense in depth: even an UNsanitized grace ≥ limit can't produce
+  // NaN/Infinity from computeMass (denominator floored at one minute).
+  const m = computeMass(3600, 20, 20);
+  assert.ok(Number.isFinite(m) && m >= 0 && m <= 1, String(m));
+});
+
+test("graceMinutes: accrual caps at the limit; decay starves back below grace", () => {
   const s = {
     ...SETTINGS,
-    appearAfterMinutes: 1,
-    limitMinutes: 2,
+    graceMinutes: 1,
+    limitMinutes: 3,
     decayHalfLifeMinutes: 1,
   };
   let state = emptyState();
   for (let t = HEARTBEAT_SEC; t <= 600; t += HEARTBEAT_SEC) {
     state = accrueHeartbeat(state, s, T0 + t * 1000, 0, DAY);
   }
-  assert.equal(state.mass, 1, "full mass reachable past the grace period");
-  assert.ok(state.effectiveSeconds <= 3 * 60 + 1, "cap = (grace+limit)*60");
-  // Off X for 3 minutes at a 1-min half-life: budget falls below the grace
-  // threshold, so the hole is hidden again (grace re-earned).
+  assert.equal(state.mass, 1, "full size reachable");
+  assert.ok(state.effectiveSeconds <= 3 * 60 + 1, "cap = limit*60");
+  // Off X for 3 minutes at a 1-min half-life: effectiveSeconds falls below
+  // the grace boundary → the hole is completely absent again.
   state = decayTick(state, s, T0 + (600 + 180) * 1000, DAY);
   assert.ok(state.effectiveSeconds < 60, String(state.effectiveSeconds));
   assert.equal(state.mass, 0);

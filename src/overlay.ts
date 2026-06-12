@@ -7,6 +7,8 @@
 // logic; this class only sizes and paints. tSec drives the hotspot orbit —
 // pass a constant for prefers-reduced-motion (static hotspot).
 
+import { diagDec, diagInc } from "./diag";
+
 const TAU = Math.PI * 2;
 const HOTSPOT_RATE = 0.55; // rad/s — one orbit ≈ 11 s
 const HOTSPOT_PHASE = 2.4; // t=0 → lower-left, like the reference
@@ -25,7 +27,7 @@ export class HoleOverlay {
   private w = 0;
   private h = 0;
   private dpr = 1;
-  private blank = true;
+  private mounted = false;
 
   constructor() {
     this.canvas = document.createElement("canvas");
@@ -40,7 +42,22 @@ export class HoleOverlay {
     if (!ctx) throw new Error("no 2d context");
     this.ctx = ctx;
     this.resize();
+    // Lazily mounted: below the grace boundary / at mass 0 the page must be
+    // COMPLETELY untouched — no canvas in the DOM at all.
+  }
+
+  private mount(): void {
+    if (this.mounted) return;
     document.documentElement.append(this.canvas);
+    this.mounted = true;
+    diagInc("canvas");
+  }
+
+  private unmount(): void {
+    if (!this.mounted) return;
+    this.canvas.remove();
+    this.mounted = false;
+    diagDec("canvas");
   }
 
   resize(): void {
@@ -59,10 +76,10 @@ export class HoleOverlay {
   }
 
   clear(): void {
-    if (this.blank) return;
+    if (!this.mounted) return;
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.blank = true;
+    this.unmount();
   }
 
   draw(
@@ -73,11 +90,14 @@ export class HoleOverlay {
     alpha: number,
     tSec = 0,
   ): void {
+    if (alpha <= 0.005 || discR < 0.5) {
+      this.clear();
+      return;
+    }
+    this.mount();
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.w, this.h);
-    this.blank = false;
-    if (alpha <= 0.005 || discR < 0.5) return;
     ctx.save();
     ctx.globalAlpha = alpha;
 
@@ -204,6 +224,6 @@ export class HoleOverlay {
   }
 
   dispose(): void {
-    this.canvas.remove();
+    this.unmount();
   }
 }

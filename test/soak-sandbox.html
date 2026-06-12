@@ -1,0 +1,171 @@
+<!doctype html>
+<!-- Memory/resource soak (docs/SECURITY-AUDIT.md + PUBLISH-CHECKLIST):
+     churns the full pipeline lifecycle and asserts every resource count
+     returns to baseline and heap growth stays bounded. NOT shipped.
+
+     Run (real time + stalled load, dpr=2 per the architecture rule):
+       "Google Chrome" - -headless - -disable-gpu - -force-device-scale-factor=2 \
+         - -window-size=1280,900 - -timeout=200000 - -enable-logging=stderr \
+         - -screenshot=/tmp/soak.png "file://$PWD/test/soak-sandbox.html?stall=1" \
+         2>&1 | grep SOAK
+     Expect: "SOAK:PASS ..." lines and a final SOAK:DONE PASS. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; background: #000; font: 15px/1.4 -apple-system, sans-serif; }
+  main { display: block; width: 600px; margin: 0 auto; background: #15202b; }
+  article { display: block; border-bottom: 1px solid #38444d; padding: 12px 16px; color: #e7e9ea; }
+  .modal { position: fixed; inset: 20% 25%; background: #1d2733; z-index: 100; color: #fff; }
+</style>
+</head>
+<body>
+<main role="main"><div data-testid="primaryColumn" id="col"></div></main>
+<script>
+  const settingsListeners = [];
+  window.chrome = {
+    storage: {
+      local: { get: async () => ({}) },
+      onChanged: { addListener: (f) => settingsListeners.push(f) },
+    },
+    runtime: { id: "soak", getURL: (p) => p },
+  };
+</script>
+<script src="./.integration.bundle.js"></script>
+<script>
+(async () => {
+  const { HoleController, RenderManager, diagCounts, DEFAULT_SETTINGS } = EH;
+  const params = new URLSearchParams(location.search);
+  if (params.get("stall")) {
+    const img = document.createElement("img");
+    img.src = "http://192.0.2.1/never-loads.png"; // hold load open; --timeout decides the end
+    document.body.appendChild(img);
+  }
+  const fillColumn = () => {
+    const col = document.querySelector('[data-testid="primaryColumn"]');
+    col.innerHTML = "";
+    for (let i = 0; i < 12; i++) {
+      const a = document.createElement("article");
+      a.textContent = `tweet ${i} — the quick brown fox jumps over the lazy dog`;
+      col.appendChild(a);
+    }
+  };
+  fillColumn();
+
+  const fireSettings = (over) =>
+    settingsListeners.forEach((f) =>
+      f({ settings: { newValue: { ...DEFAULT_SETTINGS, ...over } } }, "local"),
+    );
+  // Drive mass the way production does — a storage state change — NOT the
+  // debug override (the override deliberately bypasses `enabled`).
+  const fireMass = (mass) =>
+    settingsListeners.forEach((f) =>
+      f({ state: { newValue: { mass } } }, "local"),
+    );
+  const raf = () => new Promise(requestAnimationFrame);
+  const until = async (pred, ms, what) => {
+    const t0 = performance.now();
+    while (!pred()) {
+      if (performance.now() - t0 > ms) throw new Error(`timeout: ${what} | ${JSON.stringify(diagCounts)}`);
+      await raf();
+    }
+  };
+  const heapMB = () => (performance.memory ? performance.memory.usedJSHeapSize / 1048576 : 0);
+  const hole = (mass) => ({ x: 640, y: 450, radius: 400, mass });
+
+  const manager = new RenderManager();
+  const controller = new HoleController(manager);
+  await controller.start();
+  await raf();
+
+  // Baseline: idle at mass 0 — below the grace boundary the page must be
+  // untouched (Part A lifecycle assertion).
+  const CHURN = ["canvas", "svgFilter", "intersectionObserver", "mutationObserver"];
+  const assertBaseline = (label) => {
+    for (const k of CHURN) {
+      if (diagCounts[k] !== 0) throw new Error(`${label}: ${k}=${diagCounts[k]} (expected 0)`);
+    }
+  };
+  assertBaseline("pre-soak (below grace: zero presence)");
+  console.log("SOAK:PASS below-grace baseline — no canvas/filter/observers exist");
+
+  const heapSamples = [heapMB()];
+  let pass = true;
+  const report = (label, ok, extra = "") => {
+    pass = pass && ok;
+    console.log(`SOAK:${ok ? "PASS" : "FAIL"} ${label} ${extra}`);
+  };
+
+  // ---- Fast renderer churn ×1000: create/dispose via the manager's real
+  // lifecycle (mass threshold + mode switches + SPA nav), no easing waits.
+  try {
+    for (let i = 0; i < 1000; i++) {
+      manager.setMode(i % 2 ? "spaghetti" : "lens");
+      manager.frame(hole(0.6)); // create
+      if (i % 5 === 0) fillColumn(); // SPA nav: column subtree replaced
+      manager.frame(hole(0.6));
+      if (i % 3 === 0) manager.suspend();
+      else manager.frame(hole(0.001)); // dispose via deactivate threshold
+      for (const k of ["svgFilter", "intersectionObserver", "mutationObserver"]) {
+        if (diagCounts[k] !== 0) throw new Error(`cycle ${i}: ${k}=${diagCounts[k]}`);
+      }
+      if (i % 50 === 0) heapSamples.push(heapMB());
+    }
+    manager.setMode("auto");
+    report("renderer churn ×1000 (lens↔spaghetti, SPA nav, suspend)", true);
+  } catch (e) {
+    report("renderer churn", false, String(e));
+  }
+
+  // ---- Full-pipeline eased churn ×20: mass past grace → starve, modal
+  // open/close, enable/disable — through the controller, real easing.
+  try {
+    // Real easing makes each cycle ~10-15 s; 12 cycles fits a 6-min budget.
+    for (let i = 0; i < 12; i++) {
+      fireMass(0.6);
+      await until(() => diagCounts.canvas === 1, 4000, "overlay mount");
+      await until(() => diagCounts.svgFilter === 1, 4000, "lens create");
+      if (i % 2 === 0) {
+        const d = document.createElement("div");
+        d.className = "modal";
+        d.setAttribute("aria-modal", "true");
+        document.body.appendChild(d);
+        await until(() => diagCounts.svgFilter === 0, 8000, "modal suspends lens");
+        d.remove();
+        await until(() => diagCounts.svgFilter === 1, 8000, "modal close restores");
+      }
+      if (i % 3 === 0) {
+        fireSettings({ enabled: false });
+        await until(() => diagCounts.canvas === 0, 8000, "disable tears down");
+        fireSettings({ enabled: true });
+        await until(() => diagCounts.canvas === 1, 8000, "re-enable remounts");
+      }
+      fireMass(0); // starve below the grace boundary
+      await until(
+        () => CHURN.every((k) => diagCounts[k] === 0) && diagCounts.rafLoop === 0,
+        10000,
+        "starvation returns to baseline (incl. rAF stop)",
+      );
+      heapSamples.push(heapMB());
+    }
+    report("eased churn ×12 (grace→starve, modal, enable/disable, rAF stop)", true);
+  } catch (e) {
+    report("eased churn", false, String(e));
+  }
+
+  // ---- Heap trend: median of last quarter vs first quarter must be flat.
+  const q = (arr) => arr.slice().sort((a, b) => a - b)[Math.floor(arr.length / 2)];
+  const firstQ = q(heapSamples.slice(0, Math.max(2, heapSamples.length >> 2)));
+  const lastQ = q(heapSamples.slice(-Math.max(2, heapSamples.length >> 2)));
+  const growth = lastQ - firstQ;
+  report(
+    "heap trend flat",
+    !performance.memory || growth < 15,
+    `first-quartile ${firstQ.toFixed(1)}MB → last ${lastQ.toFixed(1)}MB (Δ${growth.toFixed(1)}MB, ${heapSamples.length} samples)`,
+  );
+
+  console.log(`SOAK:DONE ${pass ? "PASS" : "FAIL"} counts=${JSON.stringify(diagCounts)}`);
+})().catch((e) => console.log(`SOAK:DONE FAIL ${e}`));
+</script>
+</body>
+</html>

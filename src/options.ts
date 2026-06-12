@@ -1,11 +1,17 @@
 import type { HoleState } from "./mass";
-import { loadSettings, type RenderMode, type Settings } from "./settings";
+import {
+  loadSettings,
+  sanitizeSettings,
+  type RenderMode,
+  type Settings,
+} from "./settings";
 
 const $ = <T extends HTMLElement>(id: string): T =>
   document.getElementById(id) as T;
 
 const enabled = $<HTMLInputElement>("enabled");
-const appear = $<HTMLInputElement>("appear");
+const grace = $<HTMLInputElement>("grace");
+const graceHint = $<HTMLParagraphElement>("graceHint");
 const limit = $<HTMLInputElement>("limit");
 const decay = $<HTMLInputElement>("decay");
 const mode = $<HTMLSelectElement>("mode");
@@ -19,14 +25,23 @@ function num(el: HTMLInputElement, lo: number, hi: number, fallback: number) {
 }
 
 async function save(): Promise<void> {
-  const settings: Settings = {
+  const raw: Settings = {
     enabled: enabled.checked,
     limitMinutes: num(limit, 1, 480, 20),
     decayHalfLifeMinutes: num(decay, 1, 240, 10),
     renderMode: mode.value as RenderMode,
     maxCoverage: num(coverage, 5, 60, 35) / 100,
-    appearAfterMinutes: num(appear, 0, 480, 0),
+    graceMinutes: num(grace, 0, 479, 5),
   };
+  const settings = sanitizeSettings(raw);
+  // Reflect the cross-field clamp in the UI: grace must stay below limit.
+  if (settings.graceMinutes !== raw.graceMinutes) {
+    grace.value = String(settings.graceMinutes);
+    graceHint.textContent = `Must be below the full-size limit — clamped to ${settings.graceMinutes}.`;
+    graceHint.style.display = "block";
+  } else {
+    graceHint.style.display = "none";
+  }
   await chrome.storage.local.set({ settings });
 }
 
@@ -40,14 +55,14 @@ function renderStatus(state: HoleState | undefined): void {
 async function init(): Promise<void> {
   const s = await loadSettings();
   enabled.checked = s.enabled;
-  appear.value = String(s.appearAfterMinutes);
+  grace.value = String(s.graceMinutes);
   limit.value = String(s.limitMinutes);
   decay.value = String(s.decayHalfLifeMinutes);
   mode.value = s.renderMode;
   coverage.value = String(Math.round(s.maxCoverage * 100));
   coverageOut.textContent = `${coverage.value}%`;
 
-  for (const el of [enabled, appear, limit, decay, mode, coverage]) {
+  for (const el of [enabled, grace, limit, decay, mode, coverage]) {
     el.addEventListener("change", () => void save());
   }
   coverage.addEventListener("input", () => {

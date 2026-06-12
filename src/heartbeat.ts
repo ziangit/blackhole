@@ -3,6 +3,7 @@
 // last beat. The worker does all accounting; deduping across multiple X
 // tabs happens there (elapsed-time credit), so this stays dumb.
 
+import { diagDec, diagInc } from "./diag";
 import { DEFAULT_SETTINGS, loadSettings } from "./settings";
 
 const HEARTBEAT_MS = 5000;
@@ -23,6 +24,7 @@ export function initHeartbeat(): void {
 
   let lastY = window.scrollY;
   let scrollAccum = 0;
+  diagInc("listener"); // scroll (app-lifetime)
   window.addEventListener(
     "scroll",
     () => {
@@ -33,6 +35,7 @@ export function initHeartbeat(): void {
     { passive: true },
   );
 
+  diagInc("interval");
   const interval = window.setInterval(() => {
     if (
       !enabled ||
@@ -51,6 +54,7 @@ export function initHeartbeat(): void {
     } catch {
       // extension was reloaded; this content script is orphaned — stop.
       window.clearInterval(interval);
+      diagDec("interval");
     }
   }, HEARTBEAT_MS);
 }
