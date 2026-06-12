@@ -19,10 +19,16 @@ for (const path of ["manifest.json", "dist/manifest.json"]) {
 
   assert.deepEqual(
     [...m.permissions].sort(),
-    ["alarms", "storage"],
-    `${path}: permissions must be exactly storage+alarms`,
+    ["alarms", "scripting", "storage"],
+    `${path}: permissions must be exactly storage+alarms+scripting`,
   );
-  assert.equal(m.host_permissions, undefined, `${path}: no host_permissions`);
+  // scripting needs host permissions for the onInstalled re-injection into
+  // open tabs; must match the content-script policy exactly.
+  assert.deepEqual(
+    [...(m.host_permissions ?? [])].sort(),
+    ALLOWED,
+    `${path}: host_permissions must equal the content-script policy`,
+  );
   assert.equal(m.optional_permissions, undefined, `${path}: no optional_permissions`);
   assert.equal(m.externally_connectable, undefined, `${path}: no externally_connectable`);
   assert.equal(m.content_scripts.length, 1, `${path}: one content script`);

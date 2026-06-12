@@ -31,11 +31,17 @@ grep -cE "fetch\(|XMLHttpRequest|WebSocket|sendBeacon|new Function|\beval\(" dis
 
 ## 2. Permission minimization
 
-Manifest requests exactly `storage` + `alarms`. No `host_permissions`, no
-`optional_permissions`, no `tabs`, no `externally_connectable`.
-Content-script matches are explicit `http://*/*` + `https://*/*` (NOT
-`<all_urls>`, which would include `file://`). `web_accessible_resources`
-exposes one PNG, scoped with `matches` to the same patterns.
+Manifest requests `storage` + `alarms` + `scripting`, with
+`host_permissions` `http://*/*` + `https://*/*`. `scripting` + host
+permissions exist for exactly one call site: `reinjectIntoOpenTabs()`
+(src/background.ts), which re-injects content.js into open tabs on
+install/update so an extension reload doesn't leave dead tabs — it runs
+only from `onInstalled` and injects only our own packaged file (no
+arbitrary code, no `func`/`args` injection). No `optional_permissions`,
+no `tabs`, no `externally_connectable`. Content-script matches are
+explicit `http://*/*` + `https://*/*` (NOT `<all_urls>`, which would
+include `file://`). `web_accessible_resources` exposes one PNG, scoped
+with `matches` to the same patterns.
 
 **Enforced automatically**: `test/manifest-check.mjs` (part of `npm test`)
 asserts all of the above against both `manifest.json` and

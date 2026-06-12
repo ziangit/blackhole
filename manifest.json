@@ -3,7 +3,8 @@
   "name": "event-horizon",
   "version": "1.0.0",
   "description": "An anti-doomscrolling black hole for X. The longer you scroll, the bigger it grows.",
-  "permissions": ["storage", "alarms"],
+  "permissions": ["storage", "alarms", "scripting"],
+  "host_permissions": ["http://*/*", "https://*/*"],
   "icons": {
     "16": "assets/icon16.png",
     "48": "assets/icon48.png",

@@ -86,9 +86,32 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   void enqueue(handleDecayTick);
 });
 
+// Install/update/reload: Chrome injects content scripts only into pages
+// loaded AFTERWARD; scripts in already-open tabs orphan themselves and the
+// tabs go dead until manually reloaded (bit us three times). Re-inject
+// into every open matching tab — content.js carries a per-build
+// double-injection guard, so this is safe even if a tab somehow still has
+// a live copy.
+async function reinjectIntoOpenTabs(): Promise<void> {
+  const tabs = await chrome.tabs.query({
+    url: ["http://*/*", "https://*/*"],
+  });
+  await Promise.allSettled(
+    tabs.map((tab) =>
+      tab.id !== undefined
+        ? chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["content.js"],
+          })
+        : Promise.resolve([]),
+    ),
+  );
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   void ensureAlarm();
   void enqueue(handleDecayTick); // also refreshes the badge immediately
+  void reinjectIntoOpenTabs();
 });
 
 chrome.runtime.onStartup.addListener(() => {

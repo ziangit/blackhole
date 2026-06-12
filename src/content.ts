@@ -22,7 +22,21 @@ function evictOrphanRemnants(): void {
   if (col?.style.filter.includes("event-horizon-lens")) col.style.filter = "";
 }
 
-// Whatever happens, never break x.com.
+// Double-injection guard: onInstalled re-injects into open tabs (so an
+// extension reload doesn't leave dead tabs), and a tab that ALREADY runs
+// this exact build must not start a second pipeline. An orphaned older
+// build leaves a different tag and is evicted normally.
+const LOADED_FLAG = "__EH_LOADED__";
+const w = window as unknown as Record<string, unknown>;
+if (w[LOADED_FLAG] === __EH_BUILD__) {
+  console.info(`[event-horizon] build ${__EH_BUILD__} already active — skipping`);
+} else {
+  w[LOADED_FLAG] = __EH_BUILD__;
+  main();
+}
+
+function main(): void {
+// Whatever happens, never break the page.
 try {
   initHeartbeat();
 } catch (e) {
@@ -43,4 +57,5 @@ try {
   });
 } catch (e) {
   console.warn("[event-horizon] hole init failed", e);
+}
 }
