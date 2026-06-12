@@ -12,6 +12,15 @@ Inspired by [s13k's ghostty-blackhole](https://github.com/s0xDk/ghostty-blackhol
 a Ghostty shader where a black hole grows the longer you *work*. This
 extension inverts the idea: the hole feeds on doomscrolling instead.
 
+## What it looks like
+
+![The black hole devouring an X feed — lensed starfield, accretion orbit, warped tweets](docs/media/blackhole-1.png)
+
+![Close up: photon ring, Doppler-bright accretion band, chromatic-fringed content wrapping the horizon](docs/media/blackhole-2.png)
+
+🎬 **[Watch the demo video](docs/media/blackhole-demo.mp4)** — GitHub
+plays it in the file viewer.
+
 > **Not on the Chrome Web Store.** This is an open-source project you
 > build and load yourself — there is no published extension and no plan
 > to submit one.
